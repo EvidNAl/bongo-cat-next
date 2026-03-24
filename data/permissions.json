@@ -1,0 +1,6 @@
+{
+  "allowedApps": ["vs-code", "browser", "notepad"],
+  "allowedDirectories": ["workspace"],
+  "allowedCommands": ["show_date", "list_workspace", "git_status", "whoami"],
+  "dangerousActionConfirmation": true
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@my-pet/agent-service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@my-pet/shared-config": "workspace:*",
+    "@my-pet/shared-prompts": "workspace:*",
+    "@my-pet/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "tsx": "^4.20.6",
+    "typescript": "~5.8.3"
+  }
+}

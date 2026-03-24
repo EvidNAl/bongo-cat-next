@@ -3,11 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DESKTOP_ROOT="$REPO_ROOT/apps/desktop"
 
-PACKAGE_JSON="$REPO_ROOT/package.json"
-TAURI_CONF="$REPO_ROOT/src-tauri/tauri.conf.json"
-CARGO_TOML="$REPO_ROOT/src-tauri/Cargo.toml"
-CARGO_LOCK="$REPO_ROOT/src-tauri/Cargo.lock"
+PACKAGE_JSON="$DESKTOP_ROOT/package.json"
+TAURI_CONF="$DESKTOP_ROOT/src-tauri/tauri.conf.json"
+CARGO_TOML="$DESKTOP_ROOT/src-tauri/Cargo.toml"
+CARGO_LOCK="$DESKTOP_ROOT/src-tauri/Cargo.lock"
 
 cd "$REPO_ROOT"
 

@@ -1,0 +1,12 @@
+{
+  "name": "@my-pet/shared-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@my-pet/shared-types": "workspace:*"
+  }
+}

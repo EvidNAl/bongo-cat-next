@@ -1,0 +1,29 @@
+{
+  "general": {
+    "launchOnStartup": false,
+    "enableTray": true,
+    "language": "zh-CN",
+    "assistantHotkey": "Alt+Shift+B"
+  },
+  "pet": {
+    "opacity": 92,
+    "mirrorMode": false,
+    "alwaysOnTop": true,
+    "clickThrough": false,
+    "modelId": "standard"
+  },
+  "ai": {
+    "apiKey": "",
+    "baseUrl": "https://api.openai.com/v1",
+    "defaultModel": "",
+    "codexEnabled": false,
+    "codexModel": "",
+    "serviceUrl": "http://127.0.0.1:4343"
+  },
+  "permissions": {
+    "allowedApps": ["vs-code", "browser", "notepad"],
+    "allowedDirectories": ["workspace"],
+    "allowedCommands": ["show_date", "list_workspace", "git_status", "whoami"],
+    "dangerousActionConfirmation": true
+  }
+}
