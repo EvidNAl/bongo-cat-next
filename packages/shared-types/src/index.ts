@@ -154,10 +154,12 @@ export interface AllowedCommand {
   risk: RiskLevel;
 }
 
+export type OperationAction = ToolName | "settings_update" | "memory_update";
+
 export interface OperationLogEntry {
   id: string;
   source: "desktop" | "agent-service";
-  action: ToolName | "settings_update";
+  action: OperationAction;
   status: "success" | "failure";
   summary: string;
   createdAt: string;

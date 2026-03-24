@@ -8,8 +8,8 @@ export function buildRunCommandPlan(commandId: string, args: string[] = []): Pla
   return {
     id: randomUUID(),
     tool: "run_command",
-    title: command ? `Run ${command.label}` : `Run ${commandId}`,
-    rationale: "The desktop bridge will map this request to a whitelisted local command.",
+    title: command ? `执行 ${command.label}` : `执行 ${commandId}`,
+    rationale: "桌面桥会把这个请求映射到白名单命令。",
     risk: command?.risk ?? "medium",
     requiresConfirmation: true,
     payload: {

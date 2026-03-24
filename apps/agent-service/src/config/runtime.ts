@@ -53,6 +53,40 @@ export function readJsonFile<TValue>(filePath: string): TValue {
   return JSON.parse(readFileSync(filePath, "utf8")) as TValue;
 }
 
+function formatJsonValue(value: unknown, indentLevel = 0): string {
+  const indent = "  ".repeat(indentLevel);
+  const nextIndent = "  ".repeat(indentLevel + 1);
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "[]";
+    }
+
+    const canInline = value.every((item) => item === null || ["string", "number", "boolean"].includes(typeof item));
+    const inlineValue = `[${value.map((item) => JSON.stringify(item)).join(", ")}]`;
+
+    if (canInline && inlineValue.length <= 88) {
+      return inlineValue;
+    }
+
+    return `[\n${value.map((item) => `${nextIndent}${formatJsonValue(item, indentLevel + 1)}`).join(",\n")}\n${indent}]`;
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value);
+
+    if (entries.length === 0) {
+      return "{}";
+    }
+
+    return `{\n${entries
+      .map(([key, entryValue]) => `${nextIndent}${JSON.stringify(key)}: ${formatJsonValue(entryValue, indentLevel + 1)}`)
+      .join(",\n")}\n${indent}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
 export function writeJsonFile<TValue>(filePath: string, value: TValue) {
-  writeFileSync(filePath, JSON.stringify(value, null, 2) + "\n", "utf8");
+  writeFileSync(filePath, formatJsonValue(value) + "\n", "utf8");
 }

@@ -3,12 +3,13 @@
   "private": true,
   "packageManager": "pnpm@9.12.1",
   "scripts": {
-    "dev": "pnpm --parallel --filter @my-pet/desktop --filter @my-pet/agent-service run dev",
-    "dev:desktop": "pnpm --filter @my-pet/desktop dev",
-    "dev:agent": "pnpm --filter @my-pet/agent-service dev",
-    "tauri:dev": "pnpm --filter @my-pet/desktop tauri:dev",
-    "build": "pnpm -r --if-present build",
-    "lint": "pnpm -r --if-present lint",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "dev": "corepack pnpm --parallel --filter @my-pet/desktop --filter @my-pet/agent-service run dev",
+    "dev:desktop": "corepack pnpm --filter @my-pet/desktop dev",
+    "dev:agent": "corepack pnpm --filter @my-pet/agent-service dev",
+    "preview:desktop": "node scripts/serve-static.mjs apps/desktop/dist 3000 127.0.0.1",
+    "tauri:dev": "corepack pnpm --filter @my-pet/desktop tauri:dev",
+    "build": "corepack pnpm -r --if-present build",
+    "lint": "corepack pnpm -r --if-present lint",
+    "typecheck": "corepack pnpm -r --if-present typecheck"
   }
 }

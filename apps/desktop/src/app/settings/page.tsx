@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { AppSettings, PermissionSettings } from "@my-pet/shared-types";
+import { DEFAULT_MEMORY } from "@my-pet/shared-config";
+import type { AppSettings, MemoryProfile, PermissionSettings } from "@my-pet/shared-types";
 import { SettingsForm } from "@/features/settings/settings-form";
+import { getMemoryProfileFromAgent, saveMemoryProfileToAgent } from "@/services/agent-client";
 import { loadSettingsBundle, saveSettingsBundle } from "@/services/settings-client";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [permissions, setPermissions] = useState<PermissionSettings | null>(null);
+  const [memory, setMemory] = useState<MemoryProfile | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -16,12 +19,20 @@ export default function SettingsPage() {
       const bundle = await loadSettingsBundle();
       setSettings(bundle.settings);
       setPermissions(bundle.permissions);
+
+      try {
+        const serviceUrl = bundle.settings.ai.serviceUrl.trim() || undefined;
+        const profile = await getMemoryProfileFromAgent(serviceUrl);
+        setMemory(profile);
+      } catch {
+        setMemory(DEFAULT_MEMORY);
+      }
     };
 
     void bootstrap();
   }, []);
 
-  if (!settings || !permissions) {
+  if (!settings || !permissions || !memory) {
     return (
       <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_30%),linear-gradient(180deg,_#091120,_#0f1728)] px-5 py-8 text-slate-100">
         <div className="mx-auto max-w-6xl rounded-[2rem] border border-white/12 bg-[#0f1728]/85 p-8 backdrop-blur-xl">
@@ -45,19 +56,31 @@ export default function SettingsPage() {
         <SettingsForm
           settings={settings}
           permissions={permissions}
+          memory={memory}
           onChangeSettings={setSettings}
           onChangePermissions={setPermissions}
+          onChangeMemory={setMemory}
           onSave={async () => {
             setIsSaving(true);
             try {
-              await saveSettingsBundle({
+              const savedBundle = await saveSettingsBundle({
                 settings: {
                   ...settings,
                   permissions
                 },
                 permissions
               });
-              toast.success("设置已保存");
+              setSettings(savedBundle.settings);
+              setPermissions(savedBundle.permissions);
+
+              try {
+                const serviceUrl = settings.ai.serviceUrl.trim() || undefined;
+                const savedMemory = await saveMemoryProfileToAgent(memory, serviceUrl);
+                setMemory(savedMemory);
+                toast.success("设置和记忆已保存");
+              } catch (memoryError) {
+                toast.error(`设置已保存，但记忆保存失败: ${String(memoryError)}`);
+              }
             } catch (error) {
               toast.error(`保存失败: ${String(error)}`);
             } finally {

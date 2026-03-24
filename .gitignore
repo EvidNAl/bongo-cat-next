@@ -38,9 +38,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 .codex-*.log
+.tmp-*.log
 
 # local env files
 .env*.local
+
+# local runtime data
+data/logs/
 
 # vercel
 .vercel

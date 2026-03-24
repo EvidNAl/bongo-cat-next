@@ -20,6 +20,14 @@ function formatMessageTime(timestamp: string) {
   });
 }
 
+function getMessageMeta(message: ChatMessage) {
+  if (message.id === "welcome") {
+    return "系统消息";
+  }
+
+  return formatMessageTime(message.createdAt);
+}
+
 export function ChatPanel({ messages, isSending, serviceReachable, onSend, onExecuteAction, onOpenSettings }: ChatPanelProps) {
   const [draft, setDraft] = useState("");
 
@@ -75,7 +83,7 @@ export function ChatPanel({ messages, isSending, serviceReachable, onSend, onExe
             <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-slate-300/75">
               {message.role === "user" ? <User2 className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
               <span>{message.role === "user" ? "You" : "Pet Assistant"}</span>
-              <span>{formatMessageTime(message.createdAt)}</span>
+              <span>{getMessageMeta(message)}</span>
             </div>
 
             <div className="whitespace-pre-wrap text-sm leading-6">{message.content}</div>

@@ -1,3 +1,4 @@
+import { WORKSPACE_ALIAS } from "@my-pet/shared-config";
 import type { AppSettings, PermissionSettings, PlannedToolCall } from "@my-pet/shared-types";
 import { describeCodexAvailability } from "../providers/codex";
 import { getMemoryProfile } from "../providers/memory";
@@ -16,9 +17,30 @@ export interface PlanResult {
   actions: PlannedToolCall[];
 }
 
-export function planUserMessage(message: string, settings: AppSettings, permissions: PermissionSettings): PlanResult {
-  const route = routeMessage(message);
+function getProjectName(projectPath: string) {
+  const normalized = projectPath.replace(/\\/g, "/").replace(/\/+$/, "");
+  const segments = normalized.split("/").filter(Boolean);
+
+  return segments.at(-1) ?? projectPath;
+}
+
+function buildMemorySummary() {
   const memory = getMemoryProfile();
+  const preferenceLine = memory.preferences.length
+    ? `已记住你的偏好：${memory.preferences.slice(0, 2).join("；")}。`
+    : "";
+  const favoriteProjects = memory.favoriteProjectPaths.map((projectPath) => getProjectName(projectPath));
+  const projectLine = favoriteProjects.length ? `常用项目：${favoriteProjects.slice(0, 3).join("、")}。` : "";
+
+  return {
+    memory,
+    summaryText: [preferenceLine, projectLine].filter(Boolean).join("\n")
+  };
+}
+
+export function planUserMessage(message: string, settings: AppSettings, permissions: PermissionSettings): PlanResult {
+  const { memory, summaryText } = buildMemorySummary();
+  const route = routeMessage(message, memory.favoriteProjectPaths);
   const greeting = memory.nickname ? `${memory.nickname}，` : "";
 
   let actions: PlannedToolCall[] = [];
@@ -43,13 +65,37 @@ export function planUserMessage(message: string, settings: AppSettings, permissi
 
   const allowedActions = actions.filter((action) => validatePlanAgainstPermissions(action, permissions));
   const blockedActions = actions.filter((action) => !validatePlanAgainstPermissions(action, permissions));
+  const memoryHint =
+    route.kind === "file_search" && route.baseDir !== WORKSPACE_ALIAS
+      ? `这次会优先在你记住的常用项目「${getProjectName(route.baseDir)}」里检索。`
+      : memory.preferences[0]
+        ? `会沿用你的偏好：${memory.preferences[0]}。`
+        : "";
+  const blockedHint = blockedActions.some(
+    (action) => action.tool === "file_search" && action.payload.baseDir !== WORKSPACE_ALIAS
+  )
+    ? "如果你希望搜索常用项目，请先在权限页把对应目录加入允许访问列表。"
+    : "";
 
   if (!allowedActions.length) {
     return {
       replyText:
         actions.length === 0
-          ? `${greeting}我已经把桌宠、聊天、工具桥和任务队列的骨架准备好了。你现在可以直接让我打开软件、打开网址、运行白名单命令，或者在允许目录里搜索文件。${describeOpenAIAvailability(settings)} ${describeCodexAvailability(settings)}`
-          : `${greeting}我识别到了一个工具请求，但它目前不在权限白名单里。你可以先去设置页补充允许的软件、目录或命令，再让我继续。`,
+          ? [
+              `${greeting}我已经把桌宠、聊天、工具桥和任务队列的骨架准备好了。你现在可以直接让我打开软件、打开网址、运行白名单命令，或者在允许目录里搜索文件。${describeOpenAIAvailability(settings)} ${describeCodexAvailability(settings)}`,
+              summaryText,
+              memory.favoriteProjectPaths[0]
+                ? `例如你可以直接说：“在 ${getProjectName(memory.favoriteProjectPaths[0])} 搜索 README”。`
+                : ""
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : [
+              `${greeting}我识别到了一个工具请求，但它目前不在权限白名单里。你可以先去设置页补充允许的软件、目录或命令，再让我继续。`,
+              blockedHint
+            ]
+              .filter(Boolean)
+              .join("\n"),
       actions: []
     };
   }
@@ -64,7 +110,10 @@ export function planUserMessage(message: string, settings: AppSettings, permissi
     : "";
 
   return {
-    replyText: `${greeting}我已经整理出一份可执行计划：\n${planLines.join("\n")}\n${blockedLine}`.trim(),
+    replyText: [`${greeting}我已经整理出一份可执行计划：`, memoryHint, planLines.join("\n"), blockedLine, blockedHint]
+      .filter(Boolean)
+      .join("\n")
+      .trim(),
     actions: allowedActions
   };
 }

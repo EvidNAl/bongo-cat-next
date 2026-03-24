@@ -1,10 +1,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { pathToFileURL } from "node:url";
-import type { ChatRequest, SettingsBundle, TaskEventUpdate } from "@my-pet/shared-types";
+import type { ChatRequest, MemoryProfile, SettingsBundle, TaskEventUpdate } from "@my-pet/shared-types";
 import { AGENT_SERVICE_PORT } from "@my-pet/shared-config";
 import { writeAuditLog } from "./audit/logger";
+import { getAuditEntries } from "./api/audit";
 import { handleChat } from "./api/chat";
 import { getHealth } from "./api/health";
+import { getMemory, saveMemory } from "./api/memory";
 import { getSettingsBundle, saveSettingsBundle } from "./api/settings";
 import { getTasks, updateTask } from "./api/tasks";
 import { ensureDataFiles } from "./config/runtime";
@@ -79,8 +81,32 @@ export function createAgentServer(startedAt = Date.now()) {
         return;
       }
 
+      if (request.method === "GET" && url.pathname === "/api/memory") {
+        sendJson(response, 200, getMemory());
+        return;
+      }
+
+      if (request.method === "PUT" && url.pathname === "/api/memory") {
+        const memory = saveMemory(await readJsonBody<Partial<MemoryProfile>>(request));
+        writeAuditLog({
+          source: "agent-service",
+          action: "memory_update",
+          status: "success",
+          summary: "Memory profile updated",
+          detail: `昵称: ${memory.nickname}\n偏好: ${memory.preferences.length} 项\n常用项目路径: ${memory.favoriteProjectPaths.length} 个`
+        });
+        sendJson(response, 200, memory);
+        return;
+      }
+
       if (request.method === "GET" && url.pathname === "/api/tasks") {
         sendJson(response, 200, getTasks());
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/audit") {
+        const limit = Number(url.searchParams.get("limit") ?? "12");
+        sendJson(response, 200, getAuditEntries(limit));
         return;
       }
 

@@ -17,9 +17,51 @@ function findQuotedKeyword(message: string) {
   return matched?.[1] ?? null;
 }
 
-export function routeMessage(message: string): RouteDecision {
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getProjectName(projectPath: string) {
+  const normalized = projectPath.replace(/\\/g, "/").replace(/\/+$/, "");
+  const segments = normalized.split("/").filter(Boolean);
+
+  return segments.at(-1) ?? projectPath;
+}
+
+function findFavoriteProjectPath(message: string, favoriteProjectPaths: string[]) {
+  const normalized = message.trim().toLowerCase();
+
+  return (
+    favoriteProjectPaths
+      .map((projectPath) => ({
+        projectPath,
+        projectName: getProjectName(projectPath)
+      }))
+      .filter(
+        ({ projectPath, projectName }) =>
+          normalized.includes(projectPath.toLowerCase()) || normalized.includes(projectName.toLowerCase())
+      )
+      .sort((left, right) => right.projectPath.length - left.projectPath.length)[0]?.projectPath ?? null
+  );
+}
+
+function stripFavoriteProjectHint(message: string, favoriteProjectPath: string | null) {
+  if (!favoriteProjectPath) {
+    return message;
+  }
+
+  const projectName = getProjectName(favoriteProjectPath);
+
+  return message
+    .replace(new RegExp(escapeRegex(favoriteProjectPath), "gi"), " ")
+    .replace(new RegExp(escapeRegex(projectName), "gi"), " ");
+}
+
+export function routeMessage(message: string, favoriteProjectPaths: string[] = []): RouteDecision {
   const normalized = message.trim().toLowerCase();
   const foundUrl = findUrl(message);
+  const quotedKeyword = findQuotedKeyword(message);
+  const favoriteProjectPath = findFavoriteProjectPath(message, favoriteProjectPaths);
 
   if (foundUrl && /(打开|open|网址|网站|网页|浏览)/i.test(message)) {
     return {
@@ -61,14 +103,22 @@ export function routeMessage(message: string): RouteDecision {
     }
   }
 
-  if (/(搜索|查找|search|find).*(文件|目录|项目|file)/i.test(message)) {
-    const extractedKeyword = findQuotedKeyword(message);
-    const cleanedKeyword = message.replace(/搜索|查找|search|find|文件|目录|项目|file/gi, "").trim();
+  const localSearchIntent =
+    /(搜索|查找|search|find)/i.test(message) &&
+    (/(文件|目录|项目|仓库|工作区|workspace|repo|代码|脚本|readme|package\.json|tsconfig|file)/i.test(message) ||
+      Boolean(quotedKeyword) ||
+      Boolean(favoriteProjectPath));
+
+  if (localSearchIntent) {
+    const cleanedKeyword = stripFavoriteProjectHint(message, favoriteProjectPath)
+      .replace(/搜索|查找|search|find|文件|目录|项目|仓库|工作区|workspace|repo|代码|脚本|file|在|里|中的|一下|帮我|请/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
     return {
       kind: "file_search",
-      baseDir: WORKSPACE_ALIAS,
-      keyword: extractedKeyword ?? (cleanedKeyword || "todo")
+      baseDir: favoriteProjectPath ?? WORKSPACE_ALIAS,
+      keyword: quotedKeyword ?? (cleanedKeyword || "todo")
     };
   }
 

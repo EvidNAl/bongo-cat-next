@@ -2,16 +2,25 @@
 
 import { useState } from "react";
 import { ALLOWED_APPS, ALLOWED_COMMANDS } from "@my-pet/shared-config";
-import type { AppSettings, PermissionSettings } from "@my-pet/shared-types";
+import type { AppSettings, MemoryProfile, PermissionSettings } from "@my-pet/shared-types";
 
 type SettingsTab = "general" | "pet" | "ai" | "permissions";
 
 interface SettingsFormProps {
   settings: AppSettings;
   permissions: PermissionSettings;
+  memory: MemoryProfile;
   onChangeSettings: (settings: AppSettings) => void;
   onChangePermissions: (permissions: PermissionSettings) => void;
+  onChangeMemory: (memory: MemoryProfile) => void;
   onSave: () => Promise<void>;
+}
+
+function parseLineEntries(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function SectionTitle({ title, description }: { title: string; description: string }) {
@@ -55,8 +64,10 @@ function ToggleRow({
 export function SettingsForm({
   settings,
   permissions,
+  memory,
   onChangeSettings,
   onChangePermissions,
+  onChangeMemory,
   onSave
 }: SettingsFormProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -173,6 +184,72 @@ export function SettingsForm({
                     });
                   }}
                 />
+              </label>
+            </div>
+
+            <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-white">用户记忆</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    第一版先保存称呼、对话偏好和常用项目路径，让聊天规划能带一点长期上下文。
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 text-xs leading-5 text-sky-100">
+                  昵称会直接影响回复称呼。
+                  <br />
+                  偏好和项目路径先走本地 JSON，后面再升级到更完整的记忆层。
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+                <label className="rounded-2xl border border-white/10 bg-[#0b1220] p-4">
+                  <span className="text-sm font-medium text-white">你的称呼</span>
+                  <input
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-100 outline-none"
+                    value={memory.nickname}
+                    placeholder="例如 乱之"
+                    onChange={(event) => {
+                      onChangeMemory({
+                        ...memory,
+                        nickname: event.target.value
+                      });
+                    }}
+                  />
+                </label>
+
+                <label className="rounded-2xl border border-white/10 bg-[#0b1220] p-4">
+                  <span className="text-sm font-medium text-white">对话偏好</span>
+                  <textarea
+                    rows={5}
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-slate-100 outline-none"
+                    value={memory.preferences.join("\n")}
+                    placeholder={"每行一条，例如：\n偏好中文交流\n回答先给结论"}
+                    onChange={(event) => {
+                      onChangeMemory({
+                        ...memory,
+                        preferences: parseLineEntries(event.target.value)
+                      });
+                    }}
+                  />
+                </label>
+              </div>
+
+              <label className="mt-4 block rounded-2xl border border-white/10 bg-[#0b1220] p-4">
+                <span className="text-sm font-medium text-white">常用项目路径</span>
+                <textarea
+                  rows={4}
+                  className="mt-3 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-slate-100 outline-none"
+                  value={memory.favoriteProjectPaths.join("\n")}
+                  placeholder={"每行一个路径，例如：\nE:\\Onedrive\\Desktop\\Bongo"}
+                  onChange={(event) => {
+                    onChangeMemory({
+                      ...memory,
+                      favoriteProjectPaths: parseLineEntries(event.target.value)
+                    });
+                  }}
+                />
+                <p className="mt-2 text-xs text-slate-500">先手动维护即可，后续我们再把它接到更自动的项目识别和文件操作链路里。</p>
               </label>
             </div>
           </div>

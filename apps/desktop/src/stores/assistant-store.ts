@@ -1,6 +1,15 @@
 import { create } from "zustand";
-import { DEFAULT_PERMISSIONS, DEFAULT_SETTINGS } from "@my-pet/shared-config";
-import type { AgentTask, AppSettings, ChatMessage, PermissionSettings, PlannedToolCall, ServiceHealth } from "@my-pet/shared-types";
+import { DEFAULT_MEMORY, DEFAULT_PERMISSIONS, DEFAULT_SETTINGS } from "@my-pet/shared-config";
+import type {
+  AgentTask,
+  AppSettings,
+  ChatMessage,
+  MemoryProfile,
+  OperationLogEntry,
+  PermissionSettings,
+  PlannedToolCall,
+  ServiceHealth
+} from "@my-pet/shared-types";
 
 function createWelcomeMessage(): ChatMessage {
   return {
@@ -15,6 +24,8 @@ function createWelcomeMessage(): ChatMessage {
 interface AssistantState {
   messages: ChatMessage[];
   tasks: AgentTask[];
+  logs: OperationLogEntry[];
+  memory: MemoryProfile;
   settings: AppSettings;
   permissions: PermissionSettings;
   health: ServiceHealth | null;
@@ -27,8 +38,10 @@ interface AssistantState {
   setSendingState: (value: boolean) => void;
   setServiceReachable: (value: boolean) => void;
   setHealth: (health: ServiceHealth | null) => void;
+  setMemory: (memory: MemoryProfile) => void;
   setSettingsBundle: (settings: AppSettings, permissions: PermissionSettings) => void;
   setTasks: (tasks: AgentTask[]) => void;
+  setLogs: (logs: OperationLogEntry[]) => void;
   addMessage: (message: ChatMessage) => void;
   addUserMessage: (content: string) => ChatMessage;
   upsertTask: (task: AgentTask) => void;
@@ -38,6 +51,8 @@ interface AssistantState {
 export const useAssistantStore = create<AssistantState>((set) => ({
   messages: [createWelcomeMessage()],
   tasks: [],
+  logs: [],
+  memory: DEFAULT_MEMORY,
   settings: DEFAULT_SETTINGS,
   permissions: DEFAULT_PERMISSIONS,
   health: null,
@@ -58,6 +73,9 @@ export const useAssistantStore = create<AssistantState>((set) => ({
   setHealth: (health) => {
     set({ health });
   },
+  setMemory: (memory) => {
+    set({ memory });
+  },
   setSettingsBundle: (settings, permissions) => {
     set({
       settings: {
@@ -69,6 +87,9 @@ export const useAssistantStore = create<AssistantState>((set) => ({
   },
   setTasks: (tasks) => {
     set({ tasks });
+  },
+  setLogs: (logs) => {
+    set({ logs });
   },
   addMessage: (message) => {
     set((state) => ({

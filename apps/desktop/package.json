@@ -14,12 +14,12 @@
     "clean": "rimraf dist src-tauri/target",
     "tauri": "tauri",
     "tauri:icon": "tauri icon src-tauri/assets/logo.png",
-    "tauri:dev": "pnpm tauri:icon && tauri dev",
-    "tauri:build": "pnpm tauri:icon && tauri build",
-    "tauri:build:debug": "pnpm tauri:icon && tauri build --debug",
-    "build:all": "pnpm clean && pnpm build && pnpm tauri:build",
-    "release:prepare": "pnpm lint && pnpm format && pnpm build",
-    "release:build": "pnpm release:prepare && pnpm tauri:build",
+    "tauri:dev": "corepack pnpm tauri:icon && tauri dev",
+    "tauri:build": "corepack pnpm tauri:icon && tauri build",
+    "tauri:build:debug": "corepack pnpm tauri:icon && tauri build --debug",
+    "build:all": "corepack pnpm clean && corepack pnpm build && corepack pnpm tauri:build",
+    "release:prepare": "corepack pnpm lint && corepack pnpm format && corepack pnpm build",
+    "release:build": "corepack pnpm release:prepare && corepack pnpm tauri:build",
     "release": "bash ../../scripts/release.sh"
   },
   "dependencies": {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import type { PlannedToolCall, SettingsBundle, ToolExecutionResult } from "@my-pet/shared-types";
 import { ChatPanel } from "@/features/chat/chat-panel";
@@ -11,7 +10,7 @@ import { TasksPanel } from "@/features/tasks/tasks-panel";
 import { useSharedMenu } from "@/hooks/use-shared-menu";
 import { useTray } from "@/hooks/use-tray";
 import { useWindowEffects } from "@/hooks/use-window-effects";
-import { getServiceHealth, getTasks, sendChat, updateTaskEvent } from "@/services/agent-client";
+import { getMemoryProfileFromAgent, getOperationLogs, getServiceHealth, getTasks, sendChat, updateTaskEvent } from "@/services/agent-client";
 import { loadSettingsBundle } from "@/services/settings-client";
 import { fileSearch, openApp, openUrl, runCommand, showSettingsWindow } from "@/services/tauri-client";
 import { useAssistantStore } from "@/stores/assistant-store";
@@ -19,12 +18,21 @@ import { useCatStore } from "@/stores/cat-store";
 import { useModelStore } from "@/stores/model-store";
 import { isTauriRuntime } from "@/utils/tauri";
 
+function getProjectName(projectPath: string) {
+  const normalized = projectPath.replace(/\\/g, "/").replace(/\/+$/, "");
+  const segments = normalized.split("/").filter(Boolean);
+
+  return segments.at(-1) ?? projectPath;
+}
+
 export default function Home() {
   const {
     permissions,
     settings,
     messages,
     tasks,
+    logs,
+    memory,
     isSending,
     serviceReachable,
     pendingAction,
@@ -33,6 +41,8 @@ export default function Home() {
     setSendingState,
     setHealth,
     setTasks,
+    setLogs,
+    setMemory,
     setSettingsBundle,
     addMessage,
     addUserMessage,
@@ -49,11 +59,14 @@ export default function Home() {
 
   useEffect(() => {
     const bootstrap = async () => {
+      let serviceUrl = settings.ai.serviceUrl.trim() || undefined;
+
       try {
         const bundle = await loadSettingsBundle();
+        serviceUrl = bundle.settings.ai.serviceUrl.trim() || undefined;
         setSettingsBundle(bundle.settings, bundle.permissions);
 
-        if (bundle.settings.general.enableTray) {
+        if (bundle.settings.general.enableTray && isTauriRuntime()) {
           await createTray();
         }
 
@@ -63,13 +76,17 @@ export default function Home() {
       }
 
       try {
-        const [health, currentTasks] = await Promise.all([
-          getServiceHealth(settings.ai.serviceUrl),
-          getTasks(settings.ai.serviceUrl)
+        const [health, currentTasks, currentLogs] = await Promise.all([
+          getServiceHealth(serviceUrl),
+          getTasks(serviceUrl),
+          getOperationLogs(12, serviceUrl)
         ]);
+        const currentMemory = await getMemoryProfileFromAgent(serviceUrl);
 
         setHealth(health);
         setTasks(currentTasks);
+        setLogs(currentLogs);
+        setMemory(currentMemory);
         setServiceReachable(true);
       } catch {
         setServiceReachable(false);
@@ -103,6 +120,7 @@ export default function Home() {
     let cleanup: (() => void) | undefined;
 
     const bind = async () => {
+      const { listen } = await import("@tauri-apps/api/event");
       cleanup = await listen<SettingsBundle>("settings-updated", ({ payload }) => {
         setSettingsBundle(payload.settings, payload.permissions);
         applyPetSettings(payload.settings);
@@ -128,13 +146,18 @@ export default function Home() {
 
   const refreshServiceState = async () => {
     try {
-      const [health, currentTasks] = await Promise.all([
-        getServiceHealth(settings.ai.serviceUrl),
-        getTasks(settings.ai.serviceUrl)
+      const serviceUrl = settings.ai.serviceUrl.trim() || undefined;
+      const [health, currentTasks, currentLogs] = await Promise.all([
+        getServiceHealth(serviceUrl),
+        getTasks(serviceUrl),
+        getOperationLogs(12, serviceUrl)
       ]);
+      const currentMemory = await getMemoryProfileFromAgent(serviceUrl);
 
       setHealth(health);
       setTasks(currentTasks);
+      setLogs(currentLogs);
+      setMemory(currentMemory);
       setServiceReachable(true);
     } catch {
       setServiceReachable(false);
@@ -142,7 +165,7 @@ export default function Home() {
   };
 
   const handleWindowDrag = async (event: React.MouseEvent) => {
-    if (event.button !== 0) {
+    if (event.button !== 0 || !isTauriRuntime()) {
       return;
     }
 
@@ -156,6 +179,10 @@ export default function Home() {
   };
 
   const handleContextMenu = (event: React.MouseEvent) => {
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     event.preventDefault();
     void showContextMenu();
   };
@@ -174,6 +201,11 @@ export default function Home() {
   };
 
   const executeAction = async (action: PlannedToolCall, taskId: string | null = null) => {
+    if (!isTauriRuntime() && action.tool !== "open_url") {
+      toast.info("这个动作需要在 Tauri 桌面壳里执行。当前 Web 预览仅开放聊天、设置和打开网址。");
+      return;
+    }
+
     const requiresConfirmation = permissions.dangerousActionConfirmation && (action.requiresConfirmation || action.risk !== "low");
     if (requiresConfirmation) {
       setPendingAction(action, taskId);
@@ -230,6 +262,36 @@ export default function Home() {
       setSendingState(false);
     }
   };
+
+  const favoriteSearchPath = memory.favoriteProjectPaths.find((projectPath) =>
+    permissions.allowedDirectories.includes(projectPath)
+  );
+  const favoriteQuickActions: {
+    id: string;
+    title: string;
+    description: string;
+    action: PlannedToolCall;
+  }[] = favoriteSearchPath
+    ? [
+        {
+          id: "quick-search-favorite-project",
+          title: `搜索 ${getProjectName(favoriteSearchPath)}`,
+          description: "直接用记忆里的常用项目路径做一次文件搜索。",
+          action: {
+            id: "quick-search-favorite-project",
+            tool: "file_search",
+            title: `在 ${getProjectName(favoriteSearchPath)} 搜索 README`,
+            rationale: "优先验证记忆里的常用项目路径是否已经打通。",
+            risk: "low",
+            requiresConfirmation: false,
+            payload: {
+              baseDir: favoriteSearchPath,
+              keyword: "README"
+            }
+          }
+        }
+      ]
+    : [];
 
   const quickActions: {
     id: string;
@@ -302,7 +364,8 @@ export default function Home() {
           keyword: "README"
         }
       }
-    }
+    },
+    ...favoriteQuickActions
   ];
 
   return (
@@ -336,6 +399,8 @@ export default function Home() {
 
             <TasksPanel
               tasks={tasks}
+              logs={logs}
+              memory={memory}
               quickActions={quickActions}
               onRunQuickAction={(action) => {
                 void executeAction(action);

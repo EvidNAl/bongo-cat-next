@@ -5,8 +5,8 @@ export function buildOpenUrlPlan(url: string): PlannedToolCall {
   return {
     id: randomUUID(),
     tool: "open_url",
-    title: `Open ${url}`,
-    rationale: "URL requests can be handed to the default system browser.",
+    title: "打开网址",
+    rationale: `会交给系统默认浏览器处理：${url}`,
     risk: "low",
     requiresConfirmation: false,
     payload: {

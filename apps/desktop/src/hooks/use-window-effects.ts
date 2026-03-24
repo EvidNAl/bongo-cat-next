@@ -1,55 +1,62 @@
 import { useEffect, useCallback, useRef } from "react";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { toast } from "sonner";
 import { useCatStore } from "@/stores/cat-store";
+import { isTauriRuntime } from "@/utils/tauri";
 
-/**
- * 🎯 窗口效果管理 Hook
- *
- * 职责：
- * - 监听窗口相关状态变化
- * - 调用 Tauri API 设置窗口属性
- * - 处理窗口穿透和始终置顶功能
- * - 防抖处理和错误恢复
- */
+interface DesktopWindowHandle {
+  setAlwaysOnTop: (value: boolean) => Promise<void>;
+  setIgnoreCursorEvents: (value: boolean) => Promise<void>;
+  show: () => Promise<void>;
+  hide: () => Promise<void>;
+  setFocus: () => Promise<void>;
+}
+
 export function useWindowEffects() {
-  const { penetrable, alwaysOnTop, visible, opacity, scale } = useCatStore();
-
-  // 防止重复调用的标志
-  const windowRef = useRef<ReturnType<typeof getCurrentWebviewWindow> | null>(null);
+  const { penetrable, alwaysOnTop, visible, opacity } = useCatStore();
+  const windowRef = useRef<DesktopWindowHandle | null>(null);
   const isInitializedRef = useRef(false);
 
-  // 获取窗口实例（缓存）
-  const getWindow = useCallback(() => {
-    windowRef.current ??= getCurrentWebviewWindow();
+  const getWindow = useCallback(async () => {
+    if (!isTauriRuntime()) {
+      return null;
+    }
+
+    if (!windowRef.current) {
+      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      windowRef.current = getCurrentWebviewWindow() as unknown as DesktopWindowHandle;
+    }
+
     return windowRef.current;
   }, []);
 
-  // 初始化窗口设置
   useEffect(() => {
-    if (!isInitializedRef.current) {
-      isInitializedRef.current = true;
-
-      // 设置初始的 alwaysOnTop 状态
-      const initAlwaysOnTop = async () => {
-        try {
-          const window = getWindow();
-          await window.setAlwaysOnTop(alwaysOnTop);
-        } catch (error) {
-          toast.error(`Failed to set window always on top: ${String(error)}`);
-        }
-      };
-
-      void initAlwaysOnTop();
+    if (!isTauriRuntime() || isInitializedRef.current) {
+      return;
     }
+
+    isInitializedRef.current = true;
+
+    const initAlwaysOnTop = async () => {
+      try {
+        const window = await getWindow();
+        await window?.setAlwaysOnTop(alwaysOnTop);
+      } catch (error) {
+        toast.error(`Failed to set window always on top: ${String(error)}`);
+      }
+    };
+
+    void initAlwaysOnTop();
   }, [alwaysOnTop, getWindow]);
 
-  // 🎯 处理窗口穿透
   useEffect(() => {
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     const applyPenetrable = async () => {
       try {
-        const window = getWindow();
-        await window.setIgnoreCursorEvents(penetrable);
+        const window = await getWindow();
+        await window?.setIgnoreCursorEvents(penetrable);
       } catch (error) {
         toast.error(`Failed to set window click-through: ${String(error)}`);
       }
@@ -58,14 +65,15 @@ export function useWindowEffects() {
     void applyPenetrable();
   }, [penetrable, getWindow]);
 
-  // 🎯 处理始终置顶（跳过初始化时的重复调用）
   useEffect(() => {
-    if (!isInitializedRef.current) return;
+    if (!isTauriRuntime() || !isInitializedRef.current) {
+      return;
+    }
 
     const applyAlwaysOnTop = async () => {
       try {
-        const window = getWindow();
-        await window.setAlwaysOnTop(alwaysOnTop);
+        const window = await getWindow();
+        await window?.setAlwaysOnTop(alwaysOnTop);
       } catch (error) {
         toast.error(`Failed to update window always on top: ${String(error)}`);
       }
@@ -74,11 +82,18 @@ export function useWindowEffects() {
     void applyAlwaysOnTop();
   }, [alwaysOnTop, getWindow]);
 
-  // 🎯 处理窗口显示/隐藏
   useEffect(() => {
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     const applyVisibility = async () => {
       try {
-        const window = getWindow();
+        const window = await getWindow();
+        if (!window) {
+          return;
+        }
+
         if (visible) {
           await window.show();
           await window.setFocus();
@@ -93,7 +108,6 @@ export function useWindowEffects() {
     void applyVisibility();
   }, [visible, getWindow]);
 
-  // 🎯 处理窗口透明度（通过 CSS 变量实现）
   useEffect(() => {
     document.documentElement.style.setProperty("--window-opacity", (opacity / 100).toString());
   }, [opacity]);
