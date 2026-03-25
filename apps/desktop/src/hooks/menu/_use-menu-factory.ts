@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { _useMenuBuilder } from "@/hooks/menu/_use-menu-builder";
 import { showSettingsWindow } from "@/services/tauri-client";
 import { useCatStore } from "@/stores/cat-store";
+import { usePetInteractionStore } from "@/stores/pet-interaction-store";
+import { useModelStore } from "@/stores/model-store";
 
 export type MenuType = "context" | "tray";
 
@@ -18,6 +20,8 @@ export interface MenuOptions {
 export function _useMenuFactory() {
   const { t } = useTranslation(["system"]);
   const { visible, setVisible } = useCatStore();
+  const { currentModel } = useModelStore();
+  const { followEnabled, issueCommand } = usePetInteractionStore();
   const {
     createModeSubmenu,
     createPenetrableMenuItem,
@@ -92,6 +96,39 @@ export function _useMenuFactory() {
     ];
   }, [t]);
 
+  const createInteractivePetMenuItems = useCallback(async () => {
+    if (currentModel?.mode !== "interactive") {
+      return [];
+    }
+
+    return [
+      await MenuItem.new({
+        text: "摸摸",
+        action: () => {
+          issueCommand("pet");
+        }
+      }),
+      await MenuItem.new({
+        text: "喂鱼",
+        action: () => {
+          issueCommand("feed");
+        }
+      }),
+      await MenuItem.new({
+        text: "逗球",
+        action: () => {
+          issueCommand("play");
+        }
+      }),
+      await MenuItem.new({
+        text: followEnabled ? "停止跟随" : "跟随鼠标",
+        action: () => {
+          issueCommand("toggle_follow");
+        }
+      })
+    ];
+  }, [currentModel?.mode, followEnabled, issueCommand]);
+
   const createMenu = useCallback(
     async (options: MenuOptions) => {
       const items = [];
@@ -122,6 +159,10 @@ export function _useMenuFactory() {
           break;
 
         case "context":
+          if (currentModel?.mode === "interactive") {
+            items.push(await PredefinedMenuItem.new({ item: "Separator" }), ...(await createInteractivePetMenuItems()));
+          }
+
           items.push(await PredefinedMenuItem.new({ item: "Separator" }), await createLanguageSubmenu());
           items.push(
             await PredefinedMenuItem.new({ item: "Separator" }),
@@ -143,7 +184,9 @@ export function _useMenuFactory() {
       createAppControlMenuItems,
       createAppInfoMenuItems,
       createCoreMenuItems,
+      createInteractivePetMenuItems,
       createLanguageSubmenu,
+      currentModel?.mode,
       setVisible,
       t,
       visible

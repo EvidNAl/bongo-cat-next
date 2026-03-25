@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "corepack pnpm --parallel --filter @my-pet/desktop --filter @my-pet/agent-service run dev",
     "dev:desktop": "corepack pnpm --filter @my-pet/desktop dev",
+    "dev:desktop:pyqt": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-pyqt-desktop.ps1",
     "dev:agent": "corepack pnpm --filter @my-pet/agent-service dev",
     "preview:desktop": "node scripts/serve-static.mjs apps/desktop/dist 3000 127.0.0.1",
     "tauri:dev": "corepack pnpm --filter @my-pet/desktop tauri:dev",
+    "build:desktop:pyqt": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-pyqt-desktop.ps1",
     "build": "corepack pnpm -r --if-present build",
     "lint": "corepack pnpm -r --if-present lint",
     "typecheck": "corepack pnpm -r --if-present typecheck"

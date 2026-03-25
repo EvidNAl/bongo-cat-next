@@ -6,7 +6,7 @@
     "assistantHotkey": "Alt+Shift+B"
   },
   "pet": {
-    "opacity": 92,
+    "opacity": 100,
     "mirrorMode": false,
     "alwaysOnTop": true,
     "clickThrough": false,
@@ -21,9 +21,20 @@
     "serviceUrl": "http://127.0.0.1:4343"
   },
   "permissions": {
-    "allowedApps": ["vs-code", "browser", "notepad"],
-    "allowedDirectories": ["workspace"],
-    "allowedCommands": ["show_date", "list_workspace", "git_status", "whoami"],
+    "allowedApps": [
+      "vs-code",
+      "browser",
+      "notepad"
+    ],
+    "allowedDirectories": [
+      "workspace"
+    ],
+    "allowedCommands": [
+      "show_date",
+      "list_workspace",
+      "git_status",
+      "whoami"
+    ],
     "dangerousActionConfirmation": true
   }
 }

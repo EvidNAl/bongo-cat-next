@@ -19,6 +19,10 @@ node_modules/
 /out/
 /dist/
 dist/
+.venv-pyqt/
+apps/desktop-pyqt/build/
+apps/desktop-pyqt/dist/
+apps/desktop-pyqt/*.spec
 
 # production
 /build

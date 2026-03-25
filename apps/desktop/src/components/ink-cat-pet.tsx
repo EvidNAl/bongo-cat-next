@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PhysicalPosition, cursorPosition, currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { Heart, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePetInteractionStore } from "@/stores/pet-interaction-store";
 import { isTauriRuntime } from "@/utils/tauri";
 
 type PetMood = "sleeping" | "watching" | "petting" | "fed" | "playful" | "clingy";
@@ -113,13 +114,13 @@ export function InkCatPet({
 }: InkCatPetProps) {
   const tauriRuntime = isTauriRuntime();
   const globalFollowAvailable = tauriRuntime && mode === "pet";
-  const [followEnabled, setFollowEnabled] = useState(false);
   const [mood, setMood] = useState<PetMood>("sleeping");
   const [speech, setSpeech] = useState(() => pick(PET_LINES.sleeping));
   const [affection, setAffection] = useState(90);
   const [satiety, setSatiety] = useState(70);
   const [gaze, setGaze] = useState({ x: 0, y: 0 });
   const [effects, setEffects] = useState<FloatingEffect[]>([]);
+  const { followEnabled, setFollowEnabled, lastCommand, commandVersion } = usePetInteractionStore();
 
   const lastMoveAtRef = useRef(Date.now());
   const lastReactionAtRef = useRef(0);
@@ -463,8 +464,31 @@ export function InkCatPet({
   const handleFollowToggle = useCallback(() => {
     lastMoveAtRef.current = Date.now();
     lastReactionAtRef.current = Date.now();
-    setFollowEnabled((current) => !current);
-  }, []);
+    setFollowEnabled(!followEnabled);
+  }, [followEnabled, setFollowEnabled]);
+
+  useEffect(() => {
+    if (mode !== "pet" || commandVersion === 0 || !lastCommand) {
+      return;
+    }
+
+    switch (lastCommand) {
+      case "pet":
+        handlePet();
+        break;
+      case "feed":
+        handleFeed();
+        break;
+      case "play":
+        handlePlay();
+        break;
+      case "toggle_follow":
+        handleFollowToggle();
+        break;
+      default:
+        break;
+    }
+  }, [commandVersion, handleFeed, handleFollowToggle, handlePet, handlePlay, lastCommand, mode]);
 
   const handleSurfaceMove = (event: React.PointerEvent<HTMLElement>) => {
     if (!followEnabled || globalFollowAvailable) {
@@ -494,7 +518,7 @@ export function InkCatPet({
   const playfulFace = mood === "playful";
   const clingyFace = mood === "clingy";
   const showStatusHud = mode !== "pet";
-  const hideActionDock = mode === "pet" && followEnabled;
+  const showActionDock = mode !== "pet";
   const headTransform = sleeping
     ? "translate(0 10) rotate(10 126 118)"
     : clingyFace
@@ -679,7 +703,7 @@ export function InkCatPet({
         </button>
       </div>
 
-      {!hideActionDock && (
+      {showActionDock && (
         <div className="absolute inset-x-0 bottom-5 z-20 flex justify-center px-4">
           <div className="flex flex-wrap items-center justify-center gap-2 rounded-[1.5rem] border border-white/12 bg-slate-950/50 px-3 py-3 shadow-[0_18px_40px_rgba(8,15,30,0.25)] backdrop-blur">
             <ActionButton label="摸摸" onClick={handlePet} />
