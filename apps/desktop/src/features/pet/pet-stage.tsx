@@ -6,6 +6,7 @@ import { MonitorPlay, Settings2, Sparkles, Wand2 } from "lucide-react";
 import { ExpressionSelector } from "@/components/expression-selector";
 import { MotionSelector } from "@/components/motion-selector";
 import { useCatStore } from "@/stores/cat-store";
+import { useModelStore } from "@/stores/model-store";
 import { isTauriRuntime } from "@/utils/tauri";
 
 const CatViewer = dynamic(() => import("@/components/cat-viewer"), {
@@ -17,9 +18,10 @@ const CatViewer = dynamic(() => import("@/components/cat-viewer"), {
   )
 });
 
-const WEB_PREVIEW_GIFS: Record<string, string> = {
+const WEB_PREVIEW_GIFS: Record<string, string | undefined> = {
   standard: "/img/standard.gif",
-  keyboard: "/img/keyboard.gif"
+  keyboard: "/img/keyboard.gif",
+  naximofu_2: "/img/naximofu_2.gif"
 };
 
 interface PetStageProps {
@@ -28,8 +30,22 @@ interface PetStageProps {
   onStageContextMenu: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
-function WebPetPreview({ modelId, mirrorMode, opacity }: { modelId: string; mirrorMode: boolean; opacity: number }) {
-  const previewSrc = WEB_PREVIEW_GIFS[modelId] ?? WEB_PREVIEW_GIFS.standard;
+function GifPetPreview({
+  modelId,
+  mirrorMode,
+  opacity,
+  title,
+  description,
+  previewSrc
+}: {
+  modelId: string;
+  mirrorMode: boolean;
+  opacity: number;
+  title: string;
+  description: string;
+  previewSrc?: string;
+}) {
+  const resolvedPreviewSrc = previewSrc ?? WEB_PREVIEW_GIFS[modelId] ?? "/img/standard.gif";
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -40,18 +56,16 @@ function WebPetPreview({ modelId, mirrorMode, opacity }: { modelId: string; mirr
           className={`relative h-full w-full max-w-[720px] transition-transform duration-300 ${mirrorMode ? "-scale-x-100" : "scale-x-100"}`}
           style={{ opacity: opacity / 100 }}
         >
-          <Image src={previewSrc} alt="Pet preview" fill className="object-contain object-bottom" priority unoptimized />
+          <Image src={resolvedPreviewSrc} alt="Pet preview" fill className="object-contain object-bottom" priority unoptimized />
         </div>
       </div>
 
       <div className="absolute left-5 top-5 rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 text-sm text-sky-50 backdrop-blur">
         <div className="flex items-center gap-2 font-medium">
           <MonitorPlay className="h-4 w-4" />
-          Web 预览模式
+          {title}
         </div>
-        <p className="mt-1 max-w-xs text-xs leading-5 text-sky-100/80">
-          浏览器里先用 GIF 预览桌宠形态；切回 Tauri 桌面壳后，会恢复真实 Live2D、托盘和窗口能力。
-        </p>
+        <p className="mt-1 max-w-xs text-xs leading-5 text-sky-100/80">{description}</p>
       </div>
     </div>
   );
@@ -59,8 +73,11 @@ function WebPetPreview({ modelId, mirrorMode, opacity }: { modelId: string; mirr
 
 export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMenu }: PetStageProps) {
   const tauriRuntime = isTauriRuntime();
+  const { currentModel } = useModelStore();
   const { mirrorMode, selectorsVisible, availableExpressions, availableMotions, currentModelPath, penetrable, opacity } =
     useCatStore();
+  const isSpriteModel = currentModel?.mode === "sprite";
+  const spritePreviewSrc = currentModel?.previewSrc;
 
   return (
     <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-[#0f1728]/80 shadow-[0_24px_80px_rgba(6,10,24,0.55)] backdrop-blur-xl">
@@ -96,18 +113,29 @@ export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMen
         onMouseDown={onStagePointerDown}
       >
         <div className="absolute inset-0 transition-transform duration-300">
-          {tauriRuntime ? (
+          {tauriRuntime && !isSpriteModel ? (
             <div className={mirrorMode ? "-scale-x-100" : "scale-x-100"}>
               <CatViewer />
             </div>
           ) : (
-            <WebPetPreview modelId={currentModelPath} mirrorMode={mirrorMode} opacity={opacity} />
+            <GifPetPreview
+              modelId={currentModelPath}
+              mirrorMode={mirrorMode}
+              opacity={opacity}
+              previewSrc={spritePreviewSrc}
+              title={isSpriteModel ? "Sprite 桌宠模式" : "Web 预览模式"}
+              description={
+                isSpriteModel
+                  ? "这个预设来自上游 GitHub 仓库的现成桌宠资源，当前先用动画 GIF 方式接入到舞台里。"
+                  : "浏览器里先用 GIF 预览桌宠形态；切回 Tauri 桌面壳后，会恢复真实 Live2D、托盘和窗口能力。"
+              }
+            />
           )}
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#0f1728] to-transparent" />
 
-        {tauriRuntime && selectorsVisible && (
+        {tauriRuntime && !isSpriteModel && selectorsVisible && (
           <div className="absolute left-4 top-4 z-20 flex w-[240px] flex-col gap-3">
             <div className="rounded-2xl border border-white/10 bg-[#11192c]/85 p-3 shadow-lg backdrop-blur">
               <div className="mb-2 flex items-center gap-2 text-sm text-sky-100">
@@ -128,9 +156,11 @@ export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMen
         )}
 
         <div className="absolute bottom-5 left-5 max-w-sm rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100 backdrop-blur">
-          {tauriRuntime
-            ? "这里保留 Live2D 舞台、动作和表情能力，右侧继续承接聊天、任务和权限控制。"
-            : "当前是浏览器预览版本，先确认界面和流程；桌面壳可用后再切回真实 Live2D 与系统级控制。"}
+          {isSpriteModel
+            ? "当前使用 GitHub 现成桌宠资源接入的 Sprite 预设，优先保证成活；后面如果拿到对应 Live2D 模型，再升级成完整交互版。"
+            : tauriRuntime
+              ? "这里保留 Live2D 舞台、动作和表情能力，右侧继续承接聊天、任务和权限控制。"
+              : "当前是浏览器预览版本，先确认界面和流程；桌面壳可用后再切回真实 Live2D 与系统级控制。"}
         </div>
       </div>
     </section>

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { resolveResource } from "@tauri-apps/api/path";
 import { isTauriRuntime } from "@/utils/tauri";
 
-export type ModelMode = "standard" | "keyboard" | "handle";
+export type ModelMode = "standard" | "keyboard" | "handle" | "sprite";
 
 export interface Model {
   id: string;
@@ -11,6 +11,7 @@ export interface Model {
   mode: ModelMode;
   isPreset: boolean;
   modelName: string;
+  previewSrc?: string;
 }
 
 export interface Motion {
@@ -37,6 +38,7 @@ export interface ModelConfig {
   mode: ModelMode;
   isPreset: boolean;
   modelName: string;
+  previewSrc?: string;
 }
 
 export interface ModelStoreState {
@@ -68,6 +70,15 @@ export const useModelStore = create<ModelStoreState>()((set, get) => ({
         mode: "keyboard",
         isPreset: true,
         modelName: "cat.model3.json"
+      },
+      {
+        id: "naximofu_2",
+        name: "Naximofu",
+        path: "",
+        mode: "sprite",
+        isPreset: true,
+        modelName: "",
+        previewSrc: "/img/naximofu_2.gif"
       }
     ];
 
@@ -76,7 +87,7 @@ export const useModelStore = create<ModelStoreState>()((set, get) => ({
     const resolvedModels = await Promise.all(
       presetModels.map(async (model) => ({
         ...model,
-        path: isTauriRuntime() ? await resolveResource(model.path) : model.path
+        path: isTauriRuntime() && model.mode !== "sprite" ? await resolveResource(model.path) : model.path
       }))
     );
 

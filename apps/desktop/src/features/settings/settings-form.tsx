@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ALLOWED_APPS, ALLOWED_COMMANDS } from "@my-pet/shared-config";
+import { ALLOWED_APPS, ALLOWED_COMMANDS, WORKSPACE_ALIAS } from "@my-pet/shared-config";
 import type { AppSettings, MemoryProfile, PermissionSettings } from "@my-pet/shared-types";
 
 type SettingsTab = "general" | "pet" | "ai" | "permissions";
@@ -21,6 +21,24 @@ function parseLineEntries(value: string) {
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseDirectoryEntries(value: string) {
+  return value
+    .split(/[\r\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function ensureUniqueEntries(entries: string[]) {
+  return Array.from(new Set(entries));
+}
+
+function getProjectName(projectPath: string) {
+  const normalized = projectPath.replace(/\\/g, "/").replace(/\/+$/, "");
+  const segments = normalized.split("/").filter(Boolean);
+
+  return segments.at(-1) ?? projectPath;
 }
 
 function SectionTitle({ title, description }: { title: string; description: string }) {
@@ -71,6 +89,9 @@ export function SettingsForm({
   onSave
 }: SettingsFormProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const favoriteProjectsInPermissions = memory.favoriteProjectPaths.filter((projectPath) =>
+    permissions.allowedDirectories.includes(projectPath)
+  );
 
   return (
     <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
@@ -344,6 +365,7 @@ export function SettingsForm({
                 >
                   <option value="standard">standard</option>
                   <option value="keyboard">keyboard</option>
+                  <option value="naximofu_2">naximofu_2</option>
                 </select>
               </label>
             </div>
@@ -493,20 +515,109 @@ export function SettingsForm({
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="mb-3 text-sm font-medium text-white">允许访问的目录别名</div>
-              <input
-                className="w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm text-slate-100 outline-none"
-                value={permissions.allowedDirectories.join(", ")}
+              <textarea
+                rows={4}
+                className="w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm leading-6 text-slate-100 outline-none"
+                value={permissions.allowedDirectories.join("\n")}
                 onChange={(event) => {
                   onChangePermissions({
                     ...permissions,
-                    allowedDirectories: event.target.value
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean)
+                    allowedDirectories: ensureUniqueEntries(parseDirectoryEntries(event.target.value))
                   });
                 }}
               />
-              <p className="mt-2 text-xs text-slate-400">默认用 `workspace` 代表当前项目根目录，后面可以继续补更多允许路径。</p>
+              <p className="mt-2 text-xs text-slate-400">
+                默认用 `workspace` 代表当前项目根目录。支持每行一条，也支持用逗号分隔多个目录。
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-white">常用项目路径联动</div>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    这里会读取“用户记忆”里的常用项目。勾选后，聊天规划就能直接在这些项目里搜索文件。
+                  </p>
+                </div>
+
+                {memory.favoriteProjectPaths.length > 0 && (
+                  <button
+                    type="button"
+                    className="rounded-full border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs text-sky-100 transition hover:bg-sky-300/20"
+                    onClick={() => {
+                      onChangePermissions({
+                        ...permissions,
+                        allowedDirectories: ensureUniqueEntries([
+                          ...permissions.allowedDirectories,
+                          ...memory.favoriteProjectPaths
+                        ])
+                      });
+                    }}
+                  >
+                    全部加入白名单
+                  </button>
+                )}
+              </div>
+
+              <div className="mb-4 flex flex-wrap gap-2">
+                <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300">
+                  已允许目录 {permissions.allowedDirectories.length} 项
+                </span>
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-100">
+                  已联动常用项目 {favoriteProjectsInPermissions.length} 项
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300">
+                  工作区别名 {permissions.allowedDirectories.includes(WORKSPACE_ALIAS) ? "已启用" : "未启用"}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {memory.favoriteProjectPaths.length > 0 ? (
+                  memory.favoriteProjectPaths.map((projectPath) => {
+                    const isAllowed = permissions.allowedDirectories.includes(projectPath);
+
+                    return (
+                      <label
+                        key={projectPath}
+                        className="flex items-start gap-3 rounded-2xl border border-white/10 bg-[#0b1220] px-4 py-4"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isAllowed}
+                          onChange={(event) => {
+                            onChangePermissions({
+                              ...permissions,
+                              allowedDirectories: event.target.checked
+                                ? ensureUniqueEntries([...permissions.allowedDirectories, projectPath])
+                                : permissions.allowedDirectories.filter((item) => item !== projectPath)
+                            });
+                          }}
+                          className="mt-1 accent-sky-400"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-sm text-slate-100">{getProjectName(projectPath)}</div>
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                                isAllowed
+                                  ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+                                  : "border-amber-300/20 bg-amber-300/10 text-amber-100"
+                              }`}
+                            >
+                              {isAllowed ? "已允许" : "未允许"}
+                            </span>
+                          </div>
+                          <div className="mt-1 break-all text-xs leading-5 text-slate-400">{projectPath}</div>
+                        </div>
+                      </label>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-400">
+                    还没有常用项目路径。先去“通用”页的用户记忆里加几条路径，这里就会自动出现联动开关。
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">

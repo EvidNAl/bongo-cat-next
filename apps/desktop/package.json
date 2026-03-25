@@ -6,7 +6,7 @@
   "packageManager": "pnpm@9.12.1",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/clean-desktop-build.ps1 . && next build",
     "start": "next start",
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
