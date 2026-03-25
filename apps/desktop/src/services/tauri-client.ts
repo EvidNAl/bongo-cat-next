@@ -17,6 +17,22 @@ export async function showSettingsWindow() {
   await invoke("show_settings_window");
 }
 
+export async function showAssistantWindow() {
+  if (!isTauriRuntime()) {
+    return;
+  }
+
+  await invoke("show_main_window");
+}
+
+export async function showPetWindow() {
+  if (!isTauriRuntime()) {
+    return;
+  }
+
+  await invoke("show_pet_window");
+}
+
 export async function loadSettingsBundleFromTauri() {
   assertTauriRuntime();
   return invoke<SettingsBundle>("load_settings_bundle");

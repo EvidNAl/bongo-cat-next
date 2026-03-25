@@ -1,63 +1,59 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
+import { KeyboardVisualization } from "./keyboard-visualization";
+import { useLive2DSystem } from "@/hooks/use-live2d-system";
 import { useCatStore } from "@/stores/cat-store";
 import { useModelStore } from "@/stores/model-store";
-import { KeyboardVisualization } from "./keyboard-visualization";
-import NextImage from "next/image";
-import { useLive2DSystem } from "@/hooks/use-live2d-system";
-import { MotionSelector } from "@/components/motion-selector";
-import { ExpressionSelector } from "@/components/expression-selector";
 
-/**
- * 🎯 CatViewer - Live2D 渲染器组件
- *
- * 职责：
- * - Live2D 模型渲染和管理
- * - 背景图片显示和缩放同步
- * - 键盘可视化
- * - 设备事件处理
- */
-export default function CatViewer() {
+type ViewerMode = "stage" | "pet";
+
+interface CatViewerProps {
+  mode?: ViewerMode;
+  showBackground?: boolean;
+  showKeyboard?: boolean;
+}
+
+export default function CatViewer({
+  mode = "stage",
+  showBackground = true,
+  showKeyboard = true
+}: CatViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  useLive2DSystem(canvasRef);
+  useLive2DSystem(canvasRef, mode);
   const { currentModel } = useModelStore();
-
-  // 从 store 中获取状态
-  const { backgroundImage, scale, availableMotions, availableExpressions, selectorsVisible } = useCatStore();
-
+  const { backgroundImage, scale } = useCatStore();
   const [imageDimensions, setImageDimensions] = useState({
     width: 800,
     height: 600
   });
 
-  // 🎯 判断当前模型是否是高级交互模型
   const isInteractiveModel = currentModel?.id === "keyboard" || currentModel?.id === "standard";
-  const shouldShowBackground = isInteractiveModel && backgroundImage;
-  const shouldShowKeyboard = isInteractiveModel;
+  const shouldShowBackground = showBackground && isInteractiveModel && Boolean(backgroundImage);
+  const shouldShowKeyboard = showKeyboard && isInteractiveModel;
 
-  // 获取图片实际尺寸
   useEffect(() => {
-    if (backgroundImage) {
-      const img = document.createElement("img");
-      img.onload = () => {
-        setImageDimensions({
-          width: img.naturalWidth,
-          height: img.naturalHeight
-        });
-      };
-      img.src = backgroundImage;
+    if (!backgroundImage || !shouldShowBackground) {
+      return;
     }
-  }, [backgroundImage]);
 
-  // 🎯 计算缩放后的尺寸
+    const img = document.createElement("img");
+    img.onload = () => {
+      setImageDimensions({
+        width: img.naturalWidth,
+        height: img.naturalHeight
+      });
+    };
+    img.src = backgroundImage;
+  }, [backgroundImage, shouldShowBackground]);
+
   const scaledWidth = Math.round(imageDimensions.width * (scale / 100));
   const scaledHeight = Math.round(imageDimensions.height * (scale / 100));
 
   return (
     <>
-      {/* 🖼️ 背景图片层 - 仅对交互式模型显示 */}
-      {shouldShowBackground && (
+      {shouldShowBackground && backgroundImage && (
         <NextImage
           src={backgroundImage}
           alt="Background"
@@ -68,10 +64,8 @@ export default function CatViewer() {
         />
       )}
 
-      {/* 🎭 Live2D Canvas - 所有模型都需要 */}
-      <canvas ref={canvasRef} id="live2dCanvas" className="absolute size-full" />
+      <canvas ref={canvasRef} id={`live2dCanvas-${mode}`} className="absolute size-full" />
 
-      {/* ⌨️ 键盘可视化层 - 仅对交互式模型显示 */}
       {shouldShowKeyboard && <KeyboardVisualization />}
     </>
   );

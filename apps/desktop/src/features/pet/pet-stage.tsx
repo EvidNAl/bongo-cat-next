@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { MonitorPlay, Settings2, Sparkles, Wand2 } from "lucide-react";
 import { ExpressionSelector } from "@/components/expression-selector";
+import { InkCatPet } from "@/components/ink-cat-pet";
 import { MotionSelector } from "@/components/motion-selector";
 import { useCatStore } from "@/stores/cat-store";
 import { useModelStore } from "@/stores/model-store";
@@ -24,10 +25,13 @@ const WEB_PREVIEW_GIFS: Record<string, string | undefined> = {
   naximofu_2: "/img/naximofu_2.gif"
 };
 
+type StageRenderMode = "auto" | "preview" | "live2d";
+
 interface PetStageProps {
   onOpenSettings: () => void;
   onStagePointerDown: (event: React.MouseEvent<HTMLElement>) => void;
   onStageContextMenu: (event: React.MouseEvent<HTMLElement>) => void;
+  renderMode?: StageRenderMode;
 }
 
 function GifPetPreview({
@@ -71,36 +75,72 @@ function GifPetPreview({
   );
 }
 
-export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMenu }: PetStageProps) {
+export function PetStage({
+  onOpenSettings,
+  onStagePointerDown,
+  onStageContextMenu,
+  renderMode = "auto"
+}: PetStageProps) {
   const tauriRuntime = isTauriRuntime();
   const { currentModel } = useModelStore();
   const { mirrorMode, selectorsVisible, availableExpressions, availableMotions, currentModelPath, penetrable, opacity } =
     useCatStore();
+
+  const isInteractiveModel = currentModel?.mode === "interactive";
   const isSpriteModel = currentModel?.mode === "sprite";
   const spritePreviewSrc = currentModel?.previewSrc;
+  const showLive2D = !isInteractiveModel && (renderMode === "live2d" || (renderMode === "auto" && tauriRuntime && !isSpriteModel));
+
+  const previewTitle =
+    renderMode === "preview"
+      ? "桌宠窗口预览"
+      : isInteractiveModel
+        ? "2D 桌宠模式"
+        : isSpriteModel
+          ? "Sprite 桌宠模式"
+          : "Web 预览模式";
+
+  const previewDescription =
+    renderMode === "preview"
+      ? "这里展示的是独立桌宠窗口的效果预览，真实桌宠会在单独的透明悬浮窗里运行。"
+      : isInteractiveModel
+        ? "当前是原创 2D 黑猫桌宠，支持抚摸、喂食、逗玩和跟随鼠标。"
+        : isSpriteModel
+          ? "当前模型使用现成的 Sprite 预设，优先保证稳定显示。"
+          : "浏览器或普通预览模式下，会先用 GIF 展示桌宠外观。";
+
+  const stageDescription =
+    renderMode === "preview"
+      ? "这里展示的是桌宠状态预览。真实悬浮在桌面上的桌宠会在独立透明窗口里运行，避免遮住整个工作台。"
+      : isInteractiveModel
+        ? "这个 2D 桌宠是原创黑猫风格，在桌面窗口里可以抚摸、喂鱼、逗球，并在跟随鼠标时于停下后主动撒娇。"
+        : isSpriteModel
+          ? "当前模型使用 Sprite 预设，优先保证稳定显示，后续有完整资源时再继续升级。"
+          : tauriRuntime
+            ? "这里保留 Live2D 舞台、动作和表情能力，右侧继续承接聊天、任务和权限控制。"
+            : "当前是浏览器预览版，先确认界面和流程；桌面壳里会恢复真实 Live2D 与系统能力。";
 
   return (
     <section className="relative flex min-h-[560px] flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-[#0f1728]/80 shadow-[0_24px_80px_rgba(6,10,24,0.55)] backdrop-blur-xl">
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-4" onMouseDown={onStagePointerDown}>
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-sky-200/70">Pet Stage</p>
-          <h1 className="text-xl font-semibold text-white">桌宠主舞台</h1>
+          <h1 className="text-xl font-semibold text-white">{renderMode === "preview" ? "桌宠预览" : "桌宠主舞台"}</h1>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-100">
             模型 {currentModelPath}
           </span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">透明度 {opacity}%</span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
-            透明度 {opacity}%
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
-            {tauriRuntime ? (penetrable ? "点击穿透中" : "可交互") : "Web 预览"}
+            {renderMode === "preview" ? "独立桌宠窗" : tauriRuntime ? (penetrable ? "点击穿透中" : "可交互") : "Web 预览"}
           </span>
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-100 transition hover:bg-white/12"
             onClick={onOpenSettings}
+            aria-label="Open settings"
           >
             <Settings2 className="h-4 w-4" />
           </button>
@@ -113,7 +153,9 @@ export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMen
         onMouseDown={onStagePointerDown}
       >
         <div className="absolute inset-0 transition-transform duration-300">
-          {tauriRuntime && !isSpriteModel ? (
+          {isInteractiveModel ? (
+            <InkCatPet mode="stage" mirrored={mirrorMode} opacity={opacity} />
+          ) : showLive2D ? (
             <div className={mirrorMode ? "-scale-x-100" : "scale-x-100"}>
               <CatViewer />
             </div>
@@ -123,19 +165,15 @@ export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMen
               mirrorMode={mirrorMode}
               opacity={opacity}
               previewSrc={spritePreviewSrc}
-              title={isSpriteModel ? "Sprite 桌宠模式" : "Web 预览模式"}
-              description={
-                isSpriteModel
-                  ? "这个预设来自上游 GitHub 仓库的现成桌宠资源，当前先用动画 GIF 方式接入到舞台里。"
-                  : "浏览器里先用 GIF 预览桌宠形态；切回 Tauri 桌面壳后，会恢复真实 Live2D、托盘和窗口能力。"
-              }
+              title={previewTitle}
+              description={previewDescription}
             />
           )}
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#0f1728] to-transparent" />
 
-        {tauriRuntime && !isSpriteModel && selectorsVisible && (
+        {showLive2D && selectorsVisible && (
           <div className="absolute left-4 top-4 z-20 flex w-[240px] flex-col gap-3">
             <div className="rounded-2xl border border-white/10 bg-[#11192c]/85 p-3 shadow-lg backdrop-blur">
               <div className="mb-2 flex items-center gap-2 text-sm text-sky-100">
@@ -156,11 +194,7 @@ export function PetStage({ onOpenSettings, onStagePointerDown, onStageContextMen
         )}
 
         <div className="absolute bottom-5 left-5 max-w-sm rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100 backdrop-blur">
-          {isSpriteModel
-            ? "当前使用 GitHub 现成桌宠资源接入的 Sprite 预设，优先保证成活；后面如果拿到对应 Live2D 模型，再升级成完整交互版。"
-            : tauriRuntime
-              ? "这里保留 Live2D 舞台、动作和表情能力，右侧继续承接聊天、任务和权限控制。"
-              : "当前是浏览器预览版本，先确认界面和流程；桌面壳可用后再切回真实 Live2D 与系统级控制。"}
+          {stageDescription}
         </div>
       </div>
     </section>

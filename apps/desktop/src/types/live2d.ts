@@ -11,7 +11,7 @@ declare module "pixi-live2d-display" {
 export interface Live2DInstance {
   model: BaseLive2DModel | null;
   app: any;
-  load: (path: string, modelName: string, canvas: HTMLCanvasElement) => Promise<any>;
+  load: (path: string, modelName: string, canvas: HTMLCanvasElement, options?: { lowPower?: boolean }) => Promise<any>;
   getParameterRange: (id: string) => { min?: number; max?: number };
   setParameterValue: (id: string, value: number) => void;
   resize: () => void;

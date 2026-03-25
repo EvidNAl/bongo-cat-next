@@ -19,7 +19,12 @@ export function _useModelLoader(
   const { setBackgroundImage, setAvailableMotions, setAvailableExpressions } = useCatStore();
 
   const loadModelAndAssets = useCallback(
-    async (modelPath: string, modelFileName: string, canvas: HTMLCanvasElement) => {
+    async (
+      modelPath: string,
+      modelFileName: string,
+      canvas: HTMLCanvasElement,
+      options?: { lowPower?: boolean }
+    ) => {
       if (isLoading()) return;
 
       setLoading(true);
@@ -35,7 +40,7 @@ export function _useModelLoader(
         setBackgroundImage(bgUrl);
 
         // 加载 Live2D 模型
-        await live2d.load(modelPath, modelFileName, canvas);
+        await live2d.load(modelPath, modelFileName, canvas, options);
 
         // 解析并设置动作列表
         const modelJsonPath = join(modelPath, modelFileName);

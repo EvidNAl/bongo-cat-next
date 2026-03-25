@@ -69,7 +69,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     mirrorMode: false,
     alwaysOnTop: true,
     clickThrough: false,
-    modelId: "standard"
+    modelId: "ink_cat"
   },
   ai: {
     apiKey: "",

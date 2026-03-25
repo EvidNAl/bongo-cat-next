@@ -7,9 +7,6 @@ import { ChatPanel } from "@/features/chat/chat-panel";
 import { PermissionDialog } from "@/features/permissions/permission-dialog";
 import { PetStage } from "@/features/pet/pet-stage";
 import { TasksPanel } from "@/features/tasks/tasks-panel";
-import { useSharedMenu } from "@/hooks/use-shared-menu";
-import { useTray } from "@/hooks/use-tray";
-import { useWindowEffects } from "@/hooks/use-window-effects";
 import { getMemoryProfileFromAgent, getOperationLogs, getServiceHealth, getTasks, sendChat, updateTaskEvent } from "@/services/agent-client";
 import { loadSettingsBundle } from "@/services/settings-client";
 import { fileSearch, openApp, openUrl, runCommand, showSettingsWindow } from "@/services/tauri-client";
@@ -52,11 +49,6 @@ export default function Home() {
   } = useAssistantStore();
   const { setOpacity, setAlwaysOnTop, setPenetrable, setMirrorMode, setCurrentModelPath } = useCatStore();
   const { setCurrentModel } = useModelStore();
-  const { showContextMenu } = useSharedMenu();
-  const { createTray } = useTray();
-
-  useWindowEffects();
-
   useEffect(() => {
     const bootstrap = async () => {
       let serviceUrl = settings.ai.serviceUrl.trim() || undefined;
@@ -65,10 +57,6 @@ export default function Home() {
         const bundle = await loadSettingsBundle();
         serviceUrl = bundle.settings.ai.serviceUrl.trim() || undefined;
         setSettingsBundle(bundle.settings, bundle.permissions);
-
-        if (bundle.settings.general.enableTray && isTauriRuntime()) {
-          await createTray();
-        }
 
         applyPetSettings(bundle.settings);
       } catch (error) {
@@ -162,29 +150,6 @@ export default function Home() {
     } catch {
       setServiceReachable(false);
     }
-  };
-
-  const handleWindowDrag = async (event: React.MouseEvent) => {
-    if (event.button !== 0 || !isTauriRuntime()) {
-      return;
-    }
-
-    try {
-      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      const appWindow = getCurrentWebviewWindow();
-      await appWindow.startDragging();
-    } catch (error) {
-      toast.error(`Failed to handle window drag: ${String(error)}`);
-    }
-  };
-
-  const handleContextMenu = (event: React.MouseEvent) => {
-    if (!isTauriRuntime()) {
-      return;
-    }
-
-    event.preventDefault();
-    void showContextMenu();
   };
 
   const runAction = async (action: PlannedToolCall): Promise<ToolExecutionResult> => {
@@ -373,13 +338,12 @@ export default function Home() {
       <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.18),_transparent_28%),linear-gradient(160deg,_#08111d,_#0f1728_52%,_#111827)] px-4 py-4 text-slate-100">
         <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1560px] gap-4 xl:grid-cols-[1.15fr_0.95fr]">
           <PetStage
+            renderMode="preview"
             onOpenSettings={() => {
               void showSettingsWindow();
             }}
-            onStagePointerDown={(event) => {
-              void handleWindowDrag(event);
-            }}
-            onStageContextMenu={handleContextMenu}
+            onStagePointerDown={() => {}}
+            onStageContextMenu={() => {}}
           />
 
           <div className="flex min-h-full flex-col gap-4">

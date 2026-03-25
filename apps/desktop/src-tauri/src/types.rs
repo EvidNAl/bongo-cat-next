@@ -102,7 +102,7 @@ impl Default for AppSettings {
                 mirror_mode: false,
                 always_on_top: true,
                 click_through: false,
-                model_id: "standard".to_string(),
+                model_id: "ink_cat".to_string(),
             },
             ai: AiSettings {
                 api_key: String::new(),

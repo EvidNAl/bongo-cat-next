@@ -84,7 +84,7 @@ export const useCatStore = create<CatState>((set, get) => ({
   mousePressed: [],
   mousePosition: { x: 0, y: 0 },
 
-  currentModelPath: "standard",
+  currentModelPath: "ink_cat",
   backgroundImage: "",
   selectedMotion: null,
   availableMotions: [], // 可用动作列表

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "My Pet Assistant",
-  "version": "0.2.8",
+  "version": "0.2.11",
   "identifier": "com.mypetassistant.desktop",
   "build": {
     "beforeDevCommand": "corepack pnpm dev",
@@ -22,12 +22,12 @@
         "minHeight": 760,
         "center": true,
         "shadow": true,
-        "alwaysOnTop": true,
-        "transparent": true,
-        "decorations": false,
+        "alwaysOnTop": false,
+        "transparent": false,
+        "decorations": true,
         "resizable": true,
         "acceptFirstMouse": true,
-        "skipTaskbar": true
+        "skipTaskbar": false
       }
     ],
     "security": {

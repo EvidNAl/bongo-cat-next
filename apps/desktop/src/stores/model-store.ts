@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { resolveResource } from "@tauri-apps/api/path";
 import { isTauriRuntime } from "@/utils/tauri";
 
-export type ModelMode = "standard" | "keyboard" | "handle" | "sprite";
+export type ModelMode = "standard" | "keyboard" | "handle" | "sprite" | "interactive";
 
 export interface Model {
   id: string;
@@ -56,6 +56,14 @@ export const useModelStore = create<ModelStoreState>()((set, get) => ({
   initializeModels: async () => {
     const presetModels: Model[] = [
       {
+        id: "ink_cat",
+        name: "Ink Cat",
+        path: "",
+        mode: "interactive",
+        isPreset: true,
+        modelName: ""
+      },
+      {
         id: "standard",
         name: "鼠标模式",
         path: "assets/models/standard",
@@ -87,7 +95,7 @@ export const useModelStore = create<ModelStoreState>()((set, get) => ({
     const resolvedModels = await Promise.all(
       presetModels.map(async (model) => ({
         ...model,
-        path: isTauriRuntime() && model.mode !== "sprite" ? await resolveResource(model.path) : model.path
+        path: isTauriRuntime() && model.mode !== "sprite" && model.mode !== "interactive" ? await resolveResource(model.path) : model.path
       }))
     );
 

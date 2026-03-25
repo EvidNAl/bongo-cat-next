@@ -82,7 +82,7 @@ export interface PetSettings {
   mirrorMode: boolean;
   alwaysOnTop: boolean;
   clickThrough: boolean;
-  modelId: "standard" | "keyboard" | "naximofu_2";
+  modelId: "ink_cat" | "standard" | "keyboard" | "naximofu_2";
 }
 
 export interface AiSettings {

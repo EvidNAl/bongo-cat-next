@@ -363,6 +363,7 @@ export function SettingsForm({
                     });
                   }}
                 >
+                  <option value="ink_cat">ink_cat</option>
                   <option value="standard">standard</option>
                   <option value="keyboard">keyboard</option>
                   <option value="naximofu_2">naximofu_2</option>

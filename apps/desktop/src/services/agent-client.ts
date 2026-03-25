@@ -10,13 +10,35 @@ import type {
   TaskEventUpdate
 } from "@my-pet/shared-types";
 
+const REQUEST_TIMEOUT_MS = 6000;
+
 async function request<TResponse>(path: string, init?: RequestInit, serviceUrl = AGENT_SERVICE_URL): Promise<TResponse> {
-  const response = await fetch(`${serviceUrl}${path}`, {
-    headers: {
-      "Content-Type": "application/json"
-    },
-    ...init
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${serviceUrl}${path}`, {
+      headers: {
+        "Content-Type": "application/json"
+      },
+      ...init,
+      signal: controller.signal
+    });
+  } catch (error) {
+    window.clearTimeout(timeoutId);
+
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`);
+    }
+
+    throw error;
+  }
+
+  window.clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);

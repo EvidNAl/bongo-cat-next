@@ -1,51 +1,21 @@
 "use client";
 
-import type { TrayIconOptions } from "@tauri-apps/api/tray";
+import { useRef } from "react";
 import { getName, getVersion } from "@tauri-apps/api/app";
 import { resolveResource } from "@tauri-apps/api/path";
 import { TrayIcon } from "@tauri-apps/api/tray";
+import type { TrayIconOptions } from "@tauri-apps/api/tray";
 import { toast } from "sonner";
 import { _useMenuFactory } from "@/hooks/menu/_use-menu-factory";
-import { useEffect, useRef } from "react";
 
 const TRAY_ID = "BONGO_CAT_TRAY";
 
+let traySingleton: TrayIcon | null = null;
+let trayCreationPromise: Promise<TrayIcon | undefined> | null = null;
+
 export function useTray() {
-  const { createMenu, menuStates } = _useMenuFactory();
+  const { createMenu } = _useMenuFactory();
   const trayRef = useRef<TrayIcon | null>(null);
-
-  const createTray = async () => {
-    try {
-      // 检查是否已存在托盘
-      const existingTray = await TrayIcon.getById(TRAY_ID);
-      if (existingTray) {
-        trayRef.current = existingTray;
-        // 更新现有托盘的菜单
-        await updateTrayMenu(existingTray);
-        return existingTray;
-      }
-
-      const appName = await getName();
-      const appVersion = await getVersion();
-      const menu = await createMenu({ type: "tray" });
-      const icon = await resolveResource("assets/tray.png");
-
-      const options: TrayIconOptions = {
-        menu,
-        icon,
-        id: TRAY_ID,
-        tooltip: `${appName} v${appVersion}`,
-        iconAsTemplate: false,
-        menuOnLeftClick: true
-      };
-
-      const tray = await TrayIcon.new(options);
-      trayRef.current = tray;
-      return tray;
-    } catch (error) {
-      toast.error(`Failed to create system tray: ${String(error)}`);
-    }
-  };
 
   const updateTrayMenu = async (tray: TrayIcon) => {
     try {
@@ -56,18 +26,66 @@ export function useTray() {
     }
   };
 
-  // 🎯 监听所有状态变化，自动更新托盘菜单
-  useEffect(() => {
-    const updateMenu = async () => {
-      if (trayRef.current) {
-        await updateTrayMenu(trayRef.current);
-      }
-    };
+  const createTray = async () => {
+    if (traySingleton) {
+      trayRef.current = traySingleton;
+      await updateTrayMenu(traySingleton);
+      return traySingleton;
+    }
 
-    void updateMenu();
-  }, [menuStates]); // 依赖菜单状态
+    if (trayCreationPromise) {
+      const tray = await trayCreationPromise;
+      if (tray) {
+        trayRef.current = tray;
+      }
+      return tray;
+    }
+
+    trayCreationPromise = (async () => {
+      try {
+        const existingTray = await TrayIcon.getById(TRAY_ID);
+        if (existingTray) {
+          traySingleton = existingTray;
+          trayRef.current = existingTray;
+          await updateTrayMenu(existingTray);
+          return existingTray;
+        }
+
+        const appName = await getName();
+        const appVersion = await getVersion();
+        const menu = await createMenu({ type: "tray" });
+        const icon = await resolveResource("assets/tray.png");
+
+        const options: TrayIconOptions = {
+          menu,
+          icon,
+          id: TRAY_ID,
+          tooltip: `${appName} v${appVersion}`,
+          iconAsTemplate: false,
+          menuOnLeftClick: true
+        };
+
+        const tray = await TrayIcon.new(options);
+        traySingleton = tray;
+        trayRef.current = tray;
+        return tray;
+      } catch (error) {
+        toast.error(`Failed to create system tray: ${String(error)}`);
+      } finally {
+        trayCreationPromise = null;
+      }
+    })();
+
+    return trayCreationPromise;
+  };
 
   return {
-    createTray
+    createTray,
+    refreshTrayMenu: async () => {
+      const tray = trayRef.current ?? traySingleton;
+      if (tray) {
+        await updateTrayMenu(tray);
+      }
+    }
   };
 }
