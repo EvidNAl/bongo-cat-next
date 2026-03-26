@@ -26,7 +26,7 @@ if (-not $version) {
 }
 
 Get-ChildItem -LiteralPath $root -File |
-  Where-Object { $_.Name -like 'My Pet Assistant_*' -or $_.Name -eq 'bongo-cat-next.exe' } |
+  Where-Object { $_.Name -like 'My Pet Assistant_*_pyqt5_win11_x64.exe' } |
   Remove-Item -Force
 
 Remove-Item -LiteralPath $buildDir -Recurse -Force -ErrorAction SilentlyContinue

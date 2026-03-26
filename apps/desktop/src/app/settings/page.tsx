@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { AppSettings, PermissionSettings, SettingsBundle } from "@my-pet/shared-types";
 import { loadSettingsBundle, saveSettingsBundle } from "@/services/settings-client";
-import { isTauriRuntime } from "@/utils/tauri";
+import { showAssistantWindow } from "@/services/tauri-client";
 
 function Section({
   title,
@@ -16,7 +16,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[2rem] border border-white/12 bg-[#0f1728]/88 p-6 backdrop-blur-xl">
+    <section className="manager-panel rounded-[2rem] p-6">
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-white">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
@@ -55,11 +55,68 @@ function ToggleRow({
   );
 }
 
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder = ""
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block rounded-2xl border border-white/10 bg-white/5 p-4">
+      <span className="text-sm font-medium text-white">{label}</span>
+      <input
+        className="mt-3 w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="block rounded-2xl border border-white/10 bg-white/5 p-4">
+      <span className="text-sm font-medium text-white">{label}</span>
+      <select
+        className="mt-3 w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm text-slate-100 outline-none"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function SettingsPage() {
   const [bundle, setBundle] = useState<SettingsBundle | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,32 +196,26 @@ export default function SettingsPage() {
     }
   };
 
-  const handleClose = async () => {
-    if (isClosing) {
+  const handleBack = async () => {
+    if (isLeaving) {
       return;
     }
 
-    setIsClosing(true);
+    setIsLeaving(true);
 
     try {
-      if (isTauriRuntime()) {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        await getCurrentWindow().close();
-        return;
-      }
-
-      window.close();
+      await showAssistantWindow();
     } catch (error) {
-      toast.error(`关闭失败：${String(error)}`);
-      setIsClosing(false);
+      toast.error(`返回管理台失败：${String(error)}`);
+      setIsLeaving(false);
     }
   };
 
   if (loadError) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_30%),linear-gradient(180deg,_#091120,_#0f1728)] px-5 py-8 text-slate-100">
+      <main className="manager-shell min-h-screen px-5 py-8 text-slate-100">
         <div className="mx-auto max-w-4xl space-y-5">
-          <section className="rounded-[2rem] border border-rose-300/20 bg-[#0f1728]/88 p-6 backdrop-blur-xl">
+          <section className="manager-panel rounded-[2rem] p-6">
             <h1 className="text-2xl font-semibold text-white">设置加载失败</h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">{loadError}</p>
           </section>
@@ -183,10 +234,10 @@ export default function SettingsPage() {
               type="button"
               className="rounded-full border border-white/16 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10"
               onClick={() => {
-                void handleClose();
+                void handleBack();
               }}
             >
-              关闭
+              返回管理台
             </button>
           </div>
         </div>
@@ -196,8 +247,8 @@ export default function SettingsPage() {
 
   if (!bundle) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_30%),linear-gradient(180deg,_#091120,_#0f1728)] px-5 py-8 text-slate-100">
-        <div className="mx-auto max-w-4xl rounded-[2rem] border border-white/12 bg-[#0f1728]/88 p-6 backdrop-blur-xl">
+      <main className="manager-shell min-h-screen px-5 py-8 text-slate-100">
+        <div className="manager-panel mx-auto max-w-4xl rounded-[2rem] p-6">
           正在加载设置...
         </div>
       </main>
@@ -207,129 +258,45 @@ export default function SettingsPage() {
   const { settings, permissions } = bundle;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(234,179,8,0.14),_transparent_30%),linear-gradient(180deg,_#091120,_#0f1728)] px-5 py-8 text-slate-100">
+    <main className="manager-shell min-h-screen px-5 py-8 text-slate-100">
       <div className="mx-auto max-w-4xl space-y-5">
-        <header className="rounded-[2rem] border border-white/12 bg-[#0f1728]/88 p-6 backdrop-blur-xl">
+        <header className="manager-panel rounded-[2rem] p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/75">Desktop Settings</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">桌宠设置</h1>
+              <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/75">Manager Settings</p>
+              <h1 className="mt-2 text-3xl font-semibold text-white">管理端设置</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                这里只保留当前桌宠运行必须的设置项，避免再走原来那套重表单导致空白和卡顿。
+                这里只保留管理端本身会直接使用到的设置。桌宠外观、动画和交互设置已经迁移到独立的 PyQt5 桌宠程序。
               </p>
             </div>
 
             <button
               type="button"
-              className="rounded-full border border-white/16 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10"
-              disabled={isClosing}
+              className="rounded-full border border-white/16 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isLeaving}
               onClick={() => {
-                void handleClose();
+                void handleBack();
               }}
             >
-              {isClosing ? "关闭中..." : "关闭"}
+              {isLeaving ? "返回中..." : "返回管理台"}
             </button>
           </div>
         </header>
 
-        <Section title="桌宠外观" description="控制透明度、模型和窗口交互方式。">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <label className="text-sm font-medium text-white">透明度 {settings.pet.opacity}%</label>
-            <input
-              type="range"
-              min={35}
-              max={100}
-              value={settings.pet.opacity}
-              onChange={(event) => {
-                updateSettings((current) => ({
-                  ...current,
-                  pet: {
-                    ...current.pet,
-                    opacity: Number(event.target.value)
-                  }
-                }));
-              }}
-              className="mt-4 w-full accent-cyan-300"
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <ToggleRow
-              label="始终置顶"
-              description="让桌宠保持在其他窗口上层。"
-              checked={settings.pet.alwaysOnTop}
-              onChange={(checked) => {
-                updateSettings((current) => ({
-                  ...current,
-                  pet: {
-                    ...current.pet,
-                    alwaysOnTop: checked
-                  }
-                }));
-              }}
-            />
-
-            <ToggleRow
-              label="点击穿透"
-              description="只适合纯展示状态，开启后桌宠将无法直接交互。"
-              checked={settings.pet.clickThrough}
-              onChange={(checked) => {
-                updateSettings((current) => ({
-                  ...current,
-                  pet: {
-                    ...current.pet,
-                    clickThrough: checked
-                  }
-                }));
-              }}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <ToggleRow
-              label="镜像显示"
-              description="翻转桌宠朝向。"
-              checked={settings.pet.mirrorMode}
-              onChange={(checked) => {
-                updateSettings((current) => ({
-                  ...current,
-                  pet: {
-                    ...current.pet,
-                    mirrorMode: checked
-                  }
-                }));
-              }}
-            />
-
-            <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <span className="text-sm font-medium text-white">桌宠模型</span>
-              <select
-                className="mt-3 w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm text-slate-100 outline-none"
-                value={settings.pet.modelId}
-                onChange={(event) => {
-                  updateSettings((current) => ({
-                    ...current,
-                    pet: {
-                      ...current.pet,
-                      modelId: event.target.value as AppSettings["pet"]["modelId"]
-                    }
-                  }));
-                }}
-              >
-                <option value="ink_cat">ink_cat</option>
-                <option value="standard">standard</option>
-                <option value="keyboard">keyboard</option>
-                <option value="naximofu_2">naximofu_2</option>
-              </select>
-            </label>
+        <Section
+          title="桌宠协同"
+          description="Manager 负责管理进程、保存共享配置和连接 Codex。桌宠本体由独立的 PyQt5 程序负责。"
+        >
+          <div className="manager-panel-soft rounded-2xl p-4 text-sm leading-6 text-slate-200">
+            Manager 保存的配置仍会写回共享的 <code>settings.json</code>，桌宠程序会继续读取同一份配置。
           </div>
         </Section>
 
-        <Section title="通用设置" description="这里只保留会直接影响桌宠使用体验的项目。">
+        <Section title="管理端" description="控制 Manager 自己的行为和基础交互。">
           <div className="grid gap-4 md:grid-cols-2">
             <ToggleRow
               label="系统托盘"
-              description="保留托盘入口，方便从系统区重新打开窗口。"
+              description="保留系统托盘入口。关闭主窗口时不会再隐藏到后台，而是直接退出程序。"
               checked={settings.general.enableTray}
               onChange={(checked) => {
                 updateSettings((current) => ({
@@ -342,46 +309,130 @@ export default function SettingsPage() {
               }}
             />
 
-            <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <span className="text-sm font-medium text-white">语言</span>
-              <select
-                className="mt-3 w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm text-slate-100 outline-none"
-                value={settings.general.language}
-                onChange={(event) => {
-                  updateSettings((current) => ({
-                    ...current,
-                    general: {
-                      ...current.general,
-                      language: event.target.value as AppSettings["general"]["language"]
-                    }
-                  }));
-                }}
-              >
-                <option value="zh-CN">中文</option>
-                <option value="en-US">English</option>
-              </select>
-            </label>
-          </div>
-
-          <label className="block rounded-2xl border border-white/10 bg-white/5 p-4">
-            <span className="text-sm font-medium text-white">助手快捷键</span>
-            <input
-              className="mt-3 w-full rounded-xl border border-white/10 bg-[#0b1220] px-3 py-2 text-sm text-slate-100 outline-none"
-              value={settings.general.assistantHotkey}
-              onChange={(event) => {
+            <ToggleRow
+              label="启动时注册 Codex 路由"
+              description="允许 Manager 把部分请求路由给配置中的 Codex 模型。"
+              checked={settings.ai.codexEnabled}
+              onChange={(checked) => {
                 updateSettings((current) => ({
                   ...current,
-                  general: {
-                    ...current.general,
-                    assistantHotkey: event.target.value
+                  ai: {
+                    ...current.ai,
+                    codexEnabled: checked
                   }
                 }));
               }}
             />
-          </label>
+
+            <SelectField
+              label="界面语言"
+              value={settings.general.language}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  general: {
+                    ...current.general,
+                    language: value as AppSettings["general"]["language"]
+                  }
+                }));
+              }}
+              options={[
+                { value: "zh-CN", label: "中文" },
+                { value: "en-US", label: "English" }
+              ]}
+            />
+
+            <TextField
+              label="助手快捷键"
+              value={settings.general.assistantHotkey}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  general: {
+                    ...current.general,
+                    assistantHotkey: value
+                  }
+                }));
+              }}
+            />
+          </div>
         </Section>
 
-        <Section title="权限确认" description="保留高风险操作确认，避免误触发。">
+        <Section title="Codex / agent-service" description="管理本地服务地址和模型连接参数。">
+          <div className="grid gap-4 md:grid-cols-2">
+            <TextField
+              label="API Key"
+              value={settings.ai.apiKey}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  ai: {
+                    ...current.ai,
+                    apiKey: value
+                  }
+                }));
+              }}
+            />
+
+            <TextField
+              label="Base URL"
+              value={settings.ai.baseUrl}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  ai: {
+                    ...current.ai,
+                    baseUrl: value
+                  }
+                }));
+              }}
+            />
+
+            <TextField
+              label="默认模型"
+              value={settings.ai.defaultModel}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  ai: {
+                    ...current.ai,
+                    defaultModel: value
+                  }
+                }));
+              }}
+            />
+
+            <TextField
+              label="agent-service 地址"
+              value={settings.ai.serviceUrl}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  ai: {
+                    ...current.ai,
+                    serviceUrl: value
+                  }
+                }));
+              }}
+            />
+
+            <TextField
+              label="Codex 模型"
+              value={settings.ai.codexModel}
+              onChange={(value) => {
+                updateSettings((current) => ({
+                  ...current,
+                  ai: {
+                    ...current.ai,
+                    codexModel: value
+                  }
+                }));
+              }}
+            />
+          </div>
+        </Section>
+
+        <Section title="权限确认" description="保留高风险动作确认，避免误触发。">
           <ToggleRow
             label="危险操作需要确认"
             description="建议保持开启，避免误执行高风险动作。"
@@ -395,21 +446,21 @@ export default function SettingsPage() {
           />
         </Section>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[2rem] border border-white/12 bg-[#0f1728]/88 p-5 backdrop-blur-xl">
+        <div className="manager-panel flex flex-wrap items-center justify-between gap-3 rounded-[2rem] p-5">
           <div className="text-sm text-slate-300">
-            {isSaving ? "正在保存..." : "保存后会立即同步到桌宠窗口。"}
+            {isSaving ? "正在保存..." : "保存后会立即同步到 Manager，并写回共享配置文件。"}
           </div>
 
           <div className="flex gap-3">
             <button
               type="button"
               className="rounded-full border border-white/16 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isClosing}
+              disabled={isLeaving}
               onClick={() => {
-                void handleClose();
+                void handleBack();
               }}
             >
-              返回桌宠
+              返回
             </button>
             <button
               type="button"

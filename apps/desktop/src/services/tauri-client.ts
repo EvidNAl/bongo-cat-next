@@ -2,35 +2,44 @@ import { invoke } from "@tauri-apps/api/core";
 import type { SettingsBundle, ToolExecutionResult } from "@my-pet/shared-types";
 import { isTauriRuntime } from "@/utils/tauri";
 
+export interface ExternalPetAppStatus {
+  available: boolean;
+  running: boolean;
+  executablePath: string | null;
+  executableName: string | null;
+  pid: number | null;
+  message: string;
+}
+
 function assertTauriRuntime() {
   if (!isTauriRuntime()) {
     throw new Error("This action is only available inside the Tauri desktop shell.");
   }
 }
 
-export async function showSettingsWindow() {
-  if (!isTauriRuntime()) {
-    window.open("/settings", "_blank", "noopener");
+function navigateCurrentWindow(path: string) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  await invoke("show_settings_window");
+  const normalizedPath = path.endsWith("/") ? path : `${path}/`;
+  const currentPath = window.location.pathname.endsWith("/")
+    ? window.location.pathname
+    : `${window.location.pathname}/`;
+
+  if (currentPath === normalizedPath) {
+    return;
+  }
+
+  window.location.assign(normalizedPath);
+}
+
+export async function showSettingsWindow() {
+  navigateCurrentWindow("/settings/");
 }
 
 export async function showAssistantWindow() {
-  if (!isTauriRuntime()) {
-    return;
-  }
-
-  await invoke("show_main_window");
-}
-
-export async function showPetWindow() {
-  if (!isTauriRuntime()) {
-    return;
-  }
-
-  await invoke("show_pet_window");
+  navigateCurrentWindow("/");
 }
 
 export async function loadSettingsBundleFromTauri() {
@@ -80,4 +89,24 @@ export async function fileSearch(baseDir: string, keyword: string) {
     baseDir,
     keyword
   });
+}
+
+export async function getPetAppStatus() {
+  assertTauriRuntime();
+  return invoke<ExternalPetAppStatus>("get_pet_app_status");
+}
+
+export async function launchPetApp() {
+  assertTauriRuntime();
+  return invoke<ExternalPetAppStatus>("launch_pet_app");
+}
+
+export async function stopPetApp() {
+  assertTauriRuntime();
+  return invoke<ExternalPetAppStatus>("stop_pet_app");
+}
+
+export async function revealPetApp() {
+  assertTauriRuntime();
+  return invoke("reveal_pet_app");
 }

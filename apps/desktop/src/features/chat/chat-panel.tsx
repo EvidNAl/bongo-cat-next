@@ -43,7 +43,7 @@ export function ChatPanel({ messages, isSending, serviceReachable, onSend, onExe
   };
 
   return (
-    <section className="flex min-h-[420px] flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-[#0e1627]/85 shadow-[0_20px_70px_rgba(7,10,23,0.42)] backdrop-blur-xl">
+    <section className="manager-panel flex min-h-[420px] flex-col overflow-hidden rounded-[2rem]">
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/65">Assistant</p>

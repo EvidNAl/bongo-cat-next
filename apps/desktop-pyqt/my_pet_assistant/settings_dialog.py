@@ -32,7 +32,7 @@ class SettingsDialog(QDialog):
 
         self.setWindowTitle(f"桌宠设置 - PyQt5 {APP_VERSION}")
         self.setModal(True)
-        self.resize(500, 460)
+        self.resize(500, 500)
         self.setStyleSheet(
             """
             QDialog {
@@ -146,6 +146,9 @@ class SettingsDialog(QDialog):
         self.enable_tray_checkbox = QCheckBox("启用系统托盘")
         self.enable_tray_checkbox.setChecked(bool(general["enableTray"]))
 
+        self.launch_on_startup_checkbox = QCheckBox("开机自启桌宠")
+        self.launch_on_startup_checkbox.setChecked(bool(general["launchOnStartup"]))
+
         self.language_combo = QComboBox()
         self.language_combo.addItem("中文", "zh-CN")
         self.language_combo.addItem("English", "en-US")
@@ -218,6 +221,7 @@ class SettingsDialog(QDialog):
         form.setVerticalSpacing(14)
 
         form.addRow("", self.enable_tray_checkbox)
+        form.addRow("", self.launch_on_startup_checkbox)
         form.addRow("语言", self.language_combo)
         form.addRow("助手快捷键", self.hotkey_input)
         form.addRow("服务地址", self.service_url_input)
@@ -240,6 +244,7 @@ class SettingsDialog(QDialog):
         updated["pet"]["modelId"] = str(self.model_combo.currentData())
 
         updated["general"]["enableTray"] = self.enable_tray_checkbox.isChecked()
+        updated["general"]["launchOnStartup"] = self.launch_on_startup_checkbox.isChecked()
         updated["general"]["language"] = str(self.language_combo.currentData())
         updated["general"]["assistantHotkey"] = self.hotkey_input.text().strip() or "Alt+Shift+B"
         updated["ai"]["serviceUrl"] = self.service_url_input.text().strip() or "http://127.0.0.1:4343"

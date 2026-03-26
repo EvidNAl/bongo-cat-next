@@ -1,193 +1,60 @@
 "use client";
 
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
-import Image from "next/image";
-import { MessageSquareMore, Settings2 } from "lucide-react";
-import type { SettingsBundle } from "@my-pet/shared-types";
-import { InkCatPet } from "@/components/ink-cat-pet";
-import { useSharedMenu } from "@/hooks/use-shared-menu";
-import { useTray } from "@/hooks/use-tray";
-import { useWindowEffects } from "@/hooks/use-window-effects";
-import { loadSettingsBundle } from "@/services/settings-client";
-import { showAssistantWindow, showSettingsWindow } from "@/services/tauri-client";
-import { useCatStore } from "@/stores/cat-store";
-import { useModelStore } from "@/stores/model-store";
-import { isTauriRuntime } from "@/utils/tauri";
-
-const CatViewer = dynamic(() => import("@/components/cat-viewer"), {
-  ssr: false
-});
-
-const SPRITE_PREVIEWS: Partial<Record<string, string>> = {
-  standard: "/img/standard.gif",
-  keyboard: "/img/keyboard.gif",
-  naximofu_2: "/img/naximofu_2.gif"
-};
-
-interface DesktopWindowHandle {
-  startDragging: () => Promise<void>;
-}
+import { PawPrint, Settings2 } from "lucide-react";
+import { launchPetApp, showAssistantWindow, showSettingsWindow } from "@/services/tauri-client";
 
 export default function PetWindowPage() {
-  const { createTray } = useTray();
-  const { showContextMenu } = useSharedMenu();
-  const { currentModel, setCurrentModel } = useModelStore();
-  const { mirrorMode, opacity, currentModelPath, setOpacity, setAlwaysOnTop, setPenetrable, setMirrorMode, setCurrentModelPath } =
-    useCatStore();
-  const windowRef = useRef<DesktopWindowHandle | null>(null);
-
-  useWindowEffects();
-
-  useEffect(() => {
-    const applySettings = async (bundle: SettingsBundle) => {
-      setOpacity(bundle.settings.pet.opacity);
-      setAlwaysOnTop(bundle.settings.pet.alwaysOnTop);
-      setPenetrable(bundle.settings.pet.clickThrough);
-      setMirrorMode(bundle.settings.pet.mirrorMode);
-      setCurrentModelPath(bundle.settings.pet.modelId);
-      setCurrentModel(bundle.settings.pet.modelId);
-
-      if (bundle.settings.general.enableTray && isTauriRuntime()) {
-        await createTray();
-      }
-    };
-
-    const bootstrap = async () => {
-      if (isTauriRuntime()) {
-        const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-        windowRef.current = getCurrentWebviewWindow() as unknown as DesktopWindowHandle;
-      }
-
-      const bundle = await loadSettingsBundle();
-      await applySettings(bundle);
-    };
-
-    void bootstrap();
-
-    if (!isTauriRuntime()) {
-      return;
-    }
-
-    let cleanup: (() => void) | undefined;
-
-    const bind = async () => {
-      const { listen } = await import("@tauri-apps/api/event");
-      cleanup = await listen<SettingsBundle>("settings-updated", ({ payload }) => {
-        void applySettings(payload);
-      });
-    };
-
-    void bind();
-
-    return () => {
-      cleanup?.();
-    };
-  }, [createTray, setAlwaysOnTop, setCurrentModel, setCurrentModelPath, setMirrorMode, setOpacity, setPenetrable]);
-
-  const handleDrag = async (event: ReactMouseEvent<HTMLElement>) => {
-    if (event.button !== 0 || !windowRef.current) {
-      return;
-    }
-
-    try {
-      await windowRef.current.startDragging();
-    } catch {
-      // Ignore drag failures for the pet overlay.
-    }
-  };
-
-  const handleContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
-    if (!isTauriRuntime()) {
-      return;
-    }
-
-    event.preventDefault();
-    void showContextMenu();
-  };
-
-  const isInteractiveModel = currentModel?.mode === "interactive";
-  const isSpriteModel = currentModel?.mode === "sprite";
-  const previewSrc = currentModel?.previewSrc ?? SPRITE_PREVIEWS[currentModelPath] ?? SPRITE_PREVIEWS.standard ?? "/img/standard.gif";
-
   return (
-    <main
-      className="relative h-screen w-screen overflow-hidden bg-transparent select-none"
-      onMouseDown={(event) => {
-        if (isInteractiveModel) {
-          return;
-        }
-
-        void handleDrag(event);
-      }}
-      onContextMenu={handleContextMenu}
-    >
-      <div className="absolute inset-0">
-        {isInteractiveModel ? (
-          <InkCatPet mode="pet" mirrored={mirrorMode} opacity={opacity} />
-        ) : isSpriteModel ? (
-          <div className="relative h-full w-full">
-            <div
-              className={`relative h-full w-full transition-transform duration-300 ${mirrorMode ? "-scale-x-100" : "scale-x-100"}`}
-              style={{ opacity: opacity / 100 }}
-            >
-              <Image
-                src={previewSrc}
-                alt="Desktop pet"
-                fill
-                className="object-contain object-bottom drop-shadow-[0_24px_48px_rgba(15,23,42,0.28)]"
-                priority
-                unoptimized
-              />
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.16),_transparent_30%),linear-gradient(180deg,_#091120,_#0f1728)] px-5 py-8 text-slate-100">
+      <div className="mx-auto max-w-3xl space-y-5">
+        <section className="rounded-[2rem] border border-white/12 bg-[#0f1728]/88 p-6 backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full border border-amber-300/15 bg-amber-300/12 p-3 text-amber-100">
+              <PawPrint className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-amber-200/75">Migration</p>
+              <h1 className="mt-2 text-3xl font-semibold text-white">内置桌宠已迁移</h1>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                旧的 Tauri 内置桌宠窗口已经停用。桌宠本体现在由独立的 PyQt5 程序负责，管理端只保留启动、停止和 Codex 管理能力。
+              </p>
             </div>
           </div>
-        ) : (
-          <div className={mirrorMode ? "h-full w-full -scale-x-100" : "h-full w-full scale-x-100"}>
-            <CatViewer mode="pet" showBackground={false} showKeyboard={false} />
+        </section>
+
+        <section className="rounded-[2rem] border border-white/12 bg-[#0f1728]/88 p-6 backdrop-blur-xl">
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-full bg-emerald-300 px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-emerald-200"
+              onClick={() => {
+                void launchPetApp();
+              }}
+            >
+              启动 PyQt5 桌宠
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-white/16 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10"
+              onClick={() => {
+                void showAssistantWindow();
+              }}
+            >
+              返回管理台
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10"
+              onClick={() => {
+                void showSettingsWindow();
+              }}
+            >
+              <Settings2 className="h-4 w-4" />
+              打开管理端设置
+            </button>
           </div>
-        )}
+        </section>
       </div>
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/5 to-transparent" />
-
-      {!isInteractiveModel && (
-        <div className="absolute right-4 top-4 z-30 flex gap-2">
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-900/72 text-slate-100 shadow-lg backdrop-blur transition hover:bg-slate-800/85"
-            onMouseDown={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={() => {
-              void showAssistantWindow();
-            }}
-            title="打开助手窗口"
-          >
-            <MessageSquareMore className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-900/72 text-slate-100 shadow-lg backdrop-blur transition hover:bg-slate-800/85"
-            onMouseDown={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={() => {
-              void showSettingsWindow();
-            }}
-            title="打开设置"
-          >
-            <Settings2 className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {!isInteractiveModel && (
-        <div className="pointer-events-none absolute bottom-4 left-4 z-30 rounded-full border border-white/16 bg-slate-900/58 px-4 py-2 text-xs text-slate-100 shadow-lg backdrop-blur">
-          左键拖动桌宠，右键打开菜单
-        </div>
-      )}
     </main>
   );
 }

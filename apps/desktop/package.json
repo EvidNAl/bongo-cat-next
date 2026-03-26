@@ -1,7 +1,7 @@
 {
   "name": "@my-pet/desktop",
   "private": true,
-  "version": "0.2.12",
+  "version": "0.2.16",
   "type": "module",
   "packageManager": "pnpm@9.12.1",
   "scripts": {
@@ -15,8 +15,8 @@
     "tauri": "tauri",
     "tauri:icon": "tauri icon src-tauri/assets/logo.png",
     "tauri:dev": "corepack pnpm tauri:icon && tauri dev",
-    "tauri:build": "corepack pnpm tauri:icon && tauri build",
-    "tauri:build:debug": "corepack pnpm tauri:icon && tauri build --debug",
+    "tauri:build": "corepack pnpm tauri:icon && powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/stage-manager-pet-resource.ps1 && tauri build",
+    "tauri:build:debug": "corepack pnpm tauri:icon && powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/stage-manager-pet-resource.ps1 && tauri build --debug",
     "build:all": "corepack pnpm clean && corepack pnpm build && corepack pnpm tauri:build",
     "release:prepare": "corepack pnpm lint && corepack pnpm format && corepack pnpm build",
     "release:build": "corepack pnpm release:prepare && corepack pnpm tauri:build",

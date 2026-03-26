@@ -10,7 +10,7 @@
     "mirrorMode": false,
     "alwaysOnTop": true,
     "clickThrough": false,
-    "modelId": "ink_cat"
+    "modelId": "standard"
   },
   "ai": {
     "apiKey": "",

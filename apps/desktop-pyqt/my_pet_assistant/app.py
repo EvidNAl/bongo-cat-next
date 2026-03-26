@@ -6,7 +6,15 @@ import sys
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
-from .config import APP_NAME, APP_VERSION, ICON_PATH, TRAY_ICON_PATH, load_settings, save_settings
+from .config import (
+    APP_NAME,
+    APP_VERSION,
+    ICON_PATH,
+    TRAY_ICON_PATH,
+    load_settings,
+    save_settings,
+    sync_launch_on_startup_setting,
+)
 from .pet_window import PetWindow
 from .settings_dialog import SettingsDialog
 
@@ -14,6 +22,7 @@ from .settings_dialog import SettingsDialog
 class DesktopPetController:
     def __init__(self) -> None:
         self.settings = load_settings()
+        self._sync_launch_on_startup(show_errors=False)
         self.app = QApplication(sys.argv)
         self.app.setApplicationName(APP_NAME)
         self.app.setQuitOnLastWindowClosed(False)
@@ -52,17 +61,36 @@ class DesktopPetController:
             return
 
         self.settings = save_settings(dialog.updated_settings)
+        startup_sync_error = self._sync_launch_on_startup(show_errors=False)
         self.pet_window.apply_settings(self.settings)
         self.sync_tray()
 
         save_message = "设置已保存并立即生效。"
         if self.settings["pet"]["clickThrough"]:
             save_message += "\n点击穿透已开启，如需再次打开设置，请使用系统托盘。"
+        if self.settings["general"]["launchOnStartup"]:
+            save_message += "\n桌宠开机自启已启用。"
+        if startup_sync_error:
+            save_message += f"\n开机自启同步失败：{startup_sync_error}"
 
         QMessageBox.information(self.pet_window, "保存成功", save_message)
 
         if self.tray_icon is not None:
             self.tray_icon.showMessage(APP_NAME, "设置已保存并立即生效。")
+
+    def _sync_launch_on_startup(self, *, show_errors: bool) -> str | None:
+        try:
+            self.settings = sync_launch_on_startup_setting(self.settings)
+            self.settings = save_settings(self.settings)
+            return None
+        except OSError as error:
+            self.settings["general"]["launchOnStartup"] = False
+            self.settings = save_settings(self.settings)
+
+            if show_errors:
+                QMessageBox.warning(self.pet_window, APP_NAME, f"开机自启同步失败：{error}")
+
+            return str(error)
 
     def _handle_tray_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.Trigger:

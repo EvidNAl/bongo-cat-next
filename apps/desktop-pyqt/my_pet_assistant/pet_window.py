@@ -15,30 +15,45 @@ from .config import APP_NAME, ICON_PATH, PET_SEQUENCE_DIR
 
 PET_LINES = {
     "sleeping": ["呼噜...", "先睡一会。", "我在打盹。"],
+    "standing": ["我在这里守着。", "站一会。", "先看看周围。"],
     "watching": ["我跟着你走。", "你动一下，我追一下。", "别跑太快。"],
+    "walking": ["我过来找你。", "走两步。", "别躲。"],
     "petting": ["这里摸得刚刚好。", "呼噜呼噜。", "再摸一下。"],
     "fed": ["小鱼干收到。", "这一口很满足。", "吃完更有精神了。"],
     "playful": ["球呢，再来一轮。", "我还没玩够。", "继续逗我。"],
     "clingy": ["你停下来了，那我来撒娇。", "别走，陪我一会。", "看看我。"],
+    "grooming": ["先整理一下毛。", "等我舔舔毛。", "我要收拾得整齐一点。"],
 }
 
 MOOD_TO_SEQUENCE = {
     "sleeping": "默认睡觉",
+    "standing": "站立待机",
     "watching": "鼠标跟随",
+    "walking": "小步走路",
     "petting": "抚摸",
     "fed": "喂食",
     "playful": "逗球",
     "clingy": "停住撒娇",
+    "grooming": "舔毛",
+}
+
+REQUIRED_MOODS = {"sleeping", "watching", "petting", "fed", "playful", "clingy"}
+OPTIONAL_MOOD_FALLBACKS = {
+    "standing": "watching",
+    "walking": "watching",
+    "grooming": "watching",
 }
 
 MOOD_HOLD_SECONDS = {
+    "standing": 3.2,
     "petting": 2.2,
     "fed": 2.8,
     "playful": 2.2,
     "clingy": 2.8,
+    "grooming": 3.6,
 }
 
-ONE_SHOT_MOODS = {"petting", "fed", "playful", "clingy"}
+ONE_SHOT_MOODS = {"petting", "fed", "playful", "clingy", "grooming"}
 
 WINDOW_WIDTH = 180
 WINDOW_HEIGHT = 180
@@ -113,7 +128,7 @@ class PetWindow(QWidget):
         self.next_affection_decay_at = self.last_move_at
 
         self.sequence_frames = self._load_sequence_frames()
-        self.has_sprite_assets = all(self.sequence_frames.get(name) for name in MOOD_TO_SEQUENCE.values())
+        self.has_sprite_assets = all(self.sequence_frames.get(MOOD_TO_SEQUENCE[mood]) for mood in REQUIRED_MOODS)
         self.max_frame_size = self._measure_max_frame_size()
         self._schedule_next_idle_action(self.last_move_at)
         self._schedule_next_autonomous_action(self.last_move_at)
@@ -295,6 +310,25 @@ class PetWindow(QWidget):
         self.next_satiety_decay_at = now + random.uniform(*SATIETY_DECAY_INTERVAL_RANGE)
         self.next_affection_decay_at = now + random.uniform(*AFFECTION_DECAY_INTERVAL_RANGE)
 
+    def _has_sequence_for_mood(self, mood: str) -> bool:
+        sequence_name = MOOD_TO_SEQUENCE[mood]
+        return bool(self.sequence_frames.get(sequence_name))
+
+    def _resolved_mood(self, mood: str) -> str:
+        current = mood
+        while current in OPTIONAL_MOOD_FALLBACKS and not self._has_sequence_for_mood(current):
+            current = OPTIONAL_MOOD_FALLBACKS[current]
+        return current
+
+    def _sequence_name_for_mood(self, mood: str) -> str:
+        return MOOD_TO_SEQUENCE[self._resolved_mood(mood)]
+
+    def _idle_awake_mood(self) -> str:
+        return "standing" if self._has_sequence_for_mood("standing") else "watching"
+
+    def _moving_mood(self) -> str:
+        return "walking" if self._has_sequence_for_mood("walking") else "watching"
+
     def _tick_needs(self, now: float) -> None:
         while now >= self.next_satiety_decay_at:
             self.satiety = max(0, self.satiety - 1)
@@ -315,7 +349,7 @@ class PetWindow(QWidget):
             return
 
         self._set_mood(
-            "watching",
+            self._idle_awake_mood(),
             random.choice(["嗯？", "看看周围。", "醒一下。"]),
             hold_seconds=random.uniform(*IDLE_GLANCE_DURATION_RANGE),
         )
@@ -335,7 +369,7 @@ class PetWindow(QWidget):
 
         if self.satiety <= LOW_SATIETY_THRESHOLD:
             self._set_mood(
-                "watching",
+                self._idle_awake_mood(),
                 random.choice(["肚子有点饿。", "想吃小鱼。", "可以喂我吗？"]),
                 hold_seconds=random.uniform(3.6, 5.2),
             )
@@ -346,6 +380,12 @@ class PetWindow(QWidget):
                 hold_seconds=random.uniform(2.8, 4.2),
             )
             self._spawn_effect("heart", 1)
+        elif self._has_sequence_for_mood("grooming") and self.satiety >= HIGH_ENERGY_SATIETY_THRESHOLD - 6 and self.affection >= HIGH_ENERGY_AFFECTION_THRESHOLD - 8 and random.random() < 0.36:
+            self._set_mood(
+                "grooming",
+                random.choice(["先舔舔毛。", "整理一下。", "给自己收拾收拾。"]),
+                hold_seconds=random.uniform(3.0, 4.2),
+            )
         elif self.satiety >= HIGH_ENERGY_SATIETY_THRESHOLD and self.affection >= HIGH_ENERGY_AFFECTION_THRESHOLD and random.random() < 0.42:
             self._set_mood(
                 "playful",
@@ -356,7 +396,7 @@ class PetWindow(QWidget):
             self.satiety = max(0, self.satiety - 1)
         else:
             self._set_mood(
-                "watching",
+                self._idle_awake_mood(),
                 random.choice(["我在守着你。", "让我看看你在做什么。", "先观察一下。"]),
                 hold_seconds=random.uniform(2.4, 3.6),
             )
@@ -398,8 +438,8 @@ class PetWindow(QWidget):
         if cursor_moved:
             self.last_cursor_pos = cursor
             self.last_move_at = now
-            if self.mood in {"sleeping", "clingy"}:
-                self._set_mood("watching")
+            if self.mood in {"sleeping", "clingy", "standing"}:
+                self._set_mood(self._moving_mood())
 
         available = QDesktopWidget().availableGeometry(cursor)
         target_x = int(cursor.x() - self.width() * 0.36)
@@ -413,10 +453,12 @@ class PetWindow(QWidget):
         distance = max(abs(delta_x), abs(delta_y))
 
         if cursor_moved and self.mood == "clingy":
-            self._set_mood("watching")
+            self._set_mood(self._moving_mood())
 
         if distance <= FOLLOW_SETTLE_DISTANCE:
             self.follow_steps_remaining = 0
+            if self.mood == "walking":
+                self._set_mood(self._idle_awake_mood(), "我到了。", hold_seconds=random.uniform(1.8, 2.8))
             idle_for = now - self.last_move_at
             if idle_for > 1.7 and distance <= FOLLOW_CLINGY_DISTANCE and self.mood != "clingy":
                 self._apply_reaction("clingy", affection_delta=1, effect_kind="heart", effect_count=2)
@@ -424,6 +466,8 @@ class PetWindow(QWidget):
 
         if self.follow_steps_remaining <= 0 and now >= self.follow_pause_until and distance > FOLLOW_SETTLE_DISTANCE:
             self._begin_follow_burst(now)
+            if self.mood != "walking":
+                self._set_mood(self._moving_mood())
 
         if now < self.follow_pause_until or now < self.follow_next_step_at:
             return
@@ -551,7 +595,7 @@ class PetWindow(QWidget):
         return QSize(max_width or 168, max_height or 134)
 
     def _current_frames(self) -> list[QPixmap]:
-        return self.sequence_frames.get(MOOD_TO_SEQUENCE[self.mood], [])
+        return self.sequence_frames.get(self._sequence_name_for_mood(self.mood), [])
 
     def _reset_animation(self, now: float | None = None) -> None:
         now = now or time.monotonic()
@@ -577,8 +621,12 @@ class PetWindow(QWidget):
             return []
         if mood == "sleeping":
             return self._build_sleeping_plan(frame_count)
+        if mood == "standing":
+            return self._build_standing_plan(frame_count)
         if mood == "watching":
             return self._build_watching_plan(frame_count)
+        if mood == "walking":
+            return self._build_walking_plan(frame_count)
         if mood == "petting":
             return self._build_petting_plan(frame_count)
         if mood == "fed":
@@ -587,6 +635,8 @@ class PetWindow(QWidget):
             return self._build_playful_plan(frame_count)
         if mood == "clingy":
             return self._build_clingy_plan(frame_count)
+        if mood == "grooming":
+            return self._build_grooming_plan(frame_count)
         return [AnimationBeat(0, 900)]
 
     def _build_sleeping_plan(self, frame_count: int) -> list[AnimationBeat]:
@@ -614,6 +664,36 @@ class PetWindow(QWidget):
         plan.append(AnimationBeat(0, random.randint(2200, 3600)))
         return plan
 
+    def _build_standing_plan(self, frame_count: int) -> list[AnimationBeat]:
+        if frame_count == 1:
+            return [AnimationBeat(0, random.randint(1800, 2800))]
+
+        plan: list[AnimationBeat] = [AnimationBeat(0, random.randint(1400, 2600))]
+        if frame_count >= 3:
+            plan.extend(
+                [
+                    AnimationBeat(1, random.randint(240, 420)),
+                    AnimationBeat(2, random.randint(300, 520)),
+                    AnimationBeat(1, random.randint(220, 360)),
+                ]
+            )
+        elif frame_count == 2:
+            plan.extend(
+                [
+                    AnimationBeat(1, random.randint(420, 680)),
+                    AnimationBeat(0, random.randint(1200, 1800)),
+                ]
+            )
+
+        if frame_count >= 5 and random.random() < 0.45:
+            plan.append(AnimationBeat(3, random.randint(420, 720)))
+            plan.append(AnimationBeat(4, random.randint(640, 980)))
+        elif frame_count >= 4 and random.random() < 0.4:
+            plan.append(AnimationBeat(3, random.randint(620, 940)))
+
+        plan.append(AnimationBeat(0, random.randint(1200, 2200)))
+        return plan
+
     def _build_watching_plan(self, frame_count: int) -> list[AnimationBeat]:
         if frame_count == 1:
             return [AnimationBeat(0, 850)]
@@ -638,6 +718,18 @@ class PetWindow(QWidget):
             plan.append(AnimationBeat(frame_index, duration))
         return plan
 
+    def _build_walking_plan(self, frame_count: int) -> list[AnimationBeat]:
+        if frame_count == 1:
+            return [AnimationBeat(0, 160)]
+
+        forward = list(range(frame_count))
+        if frame_count >= 6:
+            sequence = forward
+        else:
+            sequence = forward + list(range(max(0, frame_count - 2), 0, -1))
+
+        return [AnimationBeat(frame_index, random.randint(95, 145)) for frame_index in sequence]
+
     def _build_petting_plan(self, frame_count: int) -> list[AnimationBeat]:
         return self._build_one_shot_plan(frame_count, [0, 1, 2, 3, 2, 1], 180, 280, 650, 900)
 
@@ -649,6 +741,15 @@ class PetWindow(QWidget):
 
     def _build_clingy_plan(self, frame_count: int) -> list[AnimationBeat]:
         return self._build_one_shot_plan(frame_count, [0, 1, 2, 3, 4, 3, 2, 1], 180, 280, 820, 1200)
+
+    def _build_grooming_plan(self, frame_count: int) -> list[AnimationBeat]:
+        if frame_count <= 0:
+            return []
+        if frame_count == 1:
+            return [AnimationBeat(0, random.randint(1400, 2200))]
+
+        pattern = [0, 1, 2, 3, 4, 3, 2, 1]
+        return self._build_one_shot_plan(frame_count, pattern, 180, 300, 760, 1100)
 
     def _build_one_shot_plan(
         self,
@@ -772,10 +873,16 @@ class PetWindow(QWidget):
         current_time = time.monotonic()
         if self.mood == "sleeping":
             return (0, round(math.sin(current_time * 1.1) * 1.5))
+        if self.mood == "standing":
+            return (0, round(math.sin(current_time * 1.6) * 0.8))
         if self.mood == "watching":
             return (round(math.sin(current_time * 1.7) * 1.2), 0)
+        if self.mood == "walking":
+            return (0, round(math.sin(current_time * 8.0) * 1.6))
         if self.mood == "clingy":
             return (0, round(math.sin(current_time * 2.6) * 1.0))
+        if self.mood == "grooming":
+            return (round(math.sin(current_time * 2.8) * 0.8), 0)
         return (0, 0)
 
     def _draw_missing_asset_placeholder(self, painter: QPainter) -> None:

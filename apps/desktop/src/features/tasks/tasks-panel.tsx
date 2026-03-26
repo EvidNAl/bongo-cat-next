@@ -76,7 +76,7 @@ function formatTime(timestamp: string) {
 export function TasksPanel({ tasks, logs, memory, quickActions, onRunQuickAction, onRefresh }: TasksPanelProps) {
   return (
     <section className="grid gap-4 lg:grid-cols-[1.05fr_1fr]">
-      <div className="rounded-[2rem] border border-white/15 bg-[#0e1627]/85 p-5 shadow-[0_20px_70px_rgba(7,10,23,0.42)] backdrop-blur-xl">
+      <div className="manager-panel rounded-[2rem] p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-amber-200/65">Tasks</p>
@@ -121,13 +121,13 @@ export function TasksPanel({ tasks, logs, memory, quickActions, onRunQuickAction
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-white/15 bg-[#0e1627]/85 p-5 shadow-[0_20px_70px_rgba(7,10,23,0.42)] backdrop-blur-xl">
+      <div className="manager-panel rounded-[2rem] p-5">
         <div className="mb-4">
           <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/65">Quick Actions</p>
           <h3 className="text-lg font-semibold text-white">工具桥与记忆</h3>
         </div>
 
-        <div className="mb-4 rounded-3xl border border-cyan-300/12 bg-cyan-300/8 p-4">
+        <div className="manager-panel-soft mb-4 rounded-3xl p-4">
           <div className="flex items-start gap-3">
             <div className="rounded-full border border-cyan-300/15 bg-cyan-300/12 p-2 text-cyan-100">
               <UserRound className="h-4 w-4" />
@@ -206,7 +206,7 @@ export function TasksPanel({ tasks, logs, memory, quickActions, onRunQuickAction
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-white/15 bg-[#0e1627]/85 p-5 shadow-[0_20px_70px_rgba(7,10,23,0.42)] backdrop-blur-xl lg:col-span-2">
+      <div className="manager-panel rounded-[2rem] p-5 lg:col-span-2">
         <div className="mb-4">
           <p className="text-xs uppercase tracking-[0.28em] text-sky-200/65">Audit</p>
           <h3 className="text-lg font-semibold text-white">最近操作</h3>

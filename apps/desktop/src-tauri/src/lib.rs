@@ -5,7 +5,7 @@ mod types;
 mod utils;
 
 use commands::{bridge, hotkey, permissions, settings, tray, window};
-use core::{device, setup};
+use core::setup;
 use tauri::{generate_handler, Manager, WindowEvent};
 
 #[tauri::command]
@@ -28,21 +28,17 @@ pub fn run() {
                 .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "Main window not found"))?;
 
             setup::default(&app_handle, main_window.clone());
-            device::start_listening(app_handle.clone());
-            window::ensure_pet_window(&app_handle).map_err(std::io::Error::other)?;
             tray::init();
             hotkey::initialize_saved_hotkey(&app_handle)
                 .map_err(std::io::Error::other)?;
 
-            println!("My Pet Assistant desktop shell started successfully!");
+            println!("My Pet Assistant manager shell started successfully!");
 
             Ok(())
         })
         .invoke_handler(generate_handler![
             get_app_version,
             window::show_main_window,
-            window::show_pet_window,
-            window::show_settings_window,
             settings::load_settings_bundle,
             settings::save_settings_bundle,
             permissions::load_permissions,
@@ -51,7 +47,11 @@ pub fn run() {
             bridge::open_app,
             bridge::open_url,
             bridge::run_command,
-            bridge::file_search
+            bridge::file_search,
+            commands::pet_app::get_pet_app_status,
+            commands::pet_app::launch_pet_app,
+            commands::pet_app::stop_pet_app,
+            commands::pet_app::reveal_pet_app
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
@@ -68,25 +68,14 @@ pub fn run() {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
-
-            let _ = window::show_pet_window(app.clone());
         }))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_os::init())
         .on_window_event(|window, event| {
             if window.label() == window::MAIN_WINDOW_LABEL {
                 if let WindowEvent::CloseRequested { api, .. } = event {
-                    let _ = window.hide();
                     api.prevent_close();
-                }
-            }
-
-            if window.label() == window::SETTINGS_WINDOW_LABEL {
-                if let WindowEvent::CloseRequested { .. } = event {
-                    if let Some(pet_window) = window.app_handle().get_webview_window(window::PET_WINDOW_LABEL) {
-                        let _ = pet_window.show();
-                        let _ = pet_window.set_focus();
-                    }
+                    window.app_handle().exit(0);
                 }
             }
         })
@@ -96,7 +85,7 @@ pub fn run() {
     app.run(|_app_handle, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            let _ = window::show_settings_window(_app_handle.clone());
+            let _ = window::show_main_window(_app_handle.clone());
         }
         _ => {}
     });

@@ -7,6 +7,30 @@ use crate::{
     types::{PermissionSettings, ToolExecutionResult},
 };
 
+fn run_output_hidden(command: &mut Command) -> Result<std::process::Output, std::io::Error> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    command.output()
+}
+
+fn spawn_hidden(command: &mut Command) -> Result<(), std::io::Error> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    command.spawn().map(|_| ())
+}
+
 fn ensure_app_allowed(app_name: &str, permissions: &PermissionSettings) -> Result<(), String> {
     if permissions.allowed_apps.iter().any(|value| value == app_name) {
         Ok(())
@@ -47,9 +71,7 @@ fn truncate_output(value: &str) -> String {
 fn open_url_internal(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        Command::new("rundll32")
-            .args(["url.dll,FileProtocolHandler", url])
-            .spawn()
+        spawn_hidden(Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]))
             .map(|_| ())
             .map_err(|error| error.to_string())
     }
@@ -80,14 +102,12 @@ pub fn open_app(app_name: String) -> Result<ToolExecutionResult, String> {
 
     match app_name.as_str() {
         "vs-code" => {
-            Command::new("code")
-                .spawn()
-                .map_err(|error| error.to_string())?;
+            let mut command = Command::new("code");
+            spawn_hidden(&mut command).map_err(|error| error.to_string())?;
         }
         "notepad" => {
-            Command::new("notepad")
-                .spawn()
-                .map_err(|error| error.to_string())?;
+            let mut command = Command::new("notepad");
+            spawn_hidden(&mut command).map_err(|error| error.to_string())?;
         }
         "browser" => {
             open_url_internal("https://example.com")?;
@@ -136,9 +156,7 @@ pub fn run_command(command_id: String, _args: Vec<String>) -> Result<ToolExecuti
         _ => return Err(format!("Unsupported command id `{command_id}`.")),
     };
 
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-Command", &script])
-        .output()
+    let output = run_output_hidden(Command::new("powershell").args(["-NoProfile", "-Command", &script]))
         .map_err(|error| error.to_string())?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
